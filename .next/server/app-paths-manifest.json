@@ -1,3 +1,6 @@
 {
-  "/page": "app/page.js"
+  "/api/problems/critical-unsolved/route": "app/api/problems/critical-unsolved/route.js",
+  "/api/problems/revision/route": "app/api/problems/revision/route.js",
+  "/page": "app/page.js",
+  "/dashboard/page": "app/dashboard/page.js"
 }
