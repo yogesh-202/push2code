@@ -42,7 +42,7 @@ export default function Home() {
             </div>
           </div>
           <div className="md:w-1/2 flex justify-center">
-            <div className="relative w-full max-w-md h-80 md:h-96">
+            <div className="relative w-full max-w-md h-80 md:h-96" style={{ position: 'relative' }}>
               <Image
                 src="https://images.unsplash.com/photo-1607706189992-eae578626c86"
                 alt="Coding Dashboard"
@@ -105,7 +105,7 @@ export default function Home() {
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-900 dark:text-white">
             Your Personal DSA Dashboard
           </h2>
-          <div className="relative h-96 md:h-[500px] rounded-lg overflow-hidden shadow-xl">
+          <div className="relative h-96 md:h-[500px] rounded-lg overflow-hidden shadow-xl" style={{ position: 'relative' }}>
             <Image
               src="https://images.unsplash.com/photo-1499673610122-01c7122c5dcb"
               alt="DSA Dashboard Interface"
@@ -123,7 +123,7 @@ export default function Home() {
             Visualize Your Progress
           </h2>
           <div className="grid md:grid-cols-2 gap-8">
-            <div className="relative h-72 md:h-80 rounded-lg overflow-hidden shadow-lg">
+            <div className="relative h-72 md:h-80 rounded-lg overflow-hidden shadow-lg" style={{ position: 'relative' }}>
               <Image
                 src="https://images.unsplash.com/photo-1653389525308-e7ab9fc0c260"
                 alt="Algorithm Visualization"
@@ -131,7 +131,7 @@ export default function Home() {
                 className="object-cover"
               />
             </div>
-            <div className="relative h-72 md:h-80 rounded-lg overflow-hidden shadow-lg">
+            <div className="relative h-72 md:h-80 rounded-lg overflow-hidden shadow-lg" style={{ position: 'relative' }}>
               <Image
                 src="https://images.unsplash.com/photo-1653389526309-f8e2e75f8aaf"
                 alt="Progress Tracking"
