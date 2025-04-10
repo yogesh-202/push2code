@@ -47,6 +47,7 @@ export default function Home() {
                 src="https://images.unsplash.com/photo-1607706189992-eae578626c86"
                 alt="Coding Dashboard"
                 fill
+                sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover rounded-lg shadow-2xl"
                 priority
               />
@@ -110,6 +111,7 @@ export default function Home() {
               src="https://images.unsplash.com/photo-1499673610122-01c7122c5dcb"
               alt="DSA Dashboard Interface"
               fill
+              sizes="100vw"
               className="object-cover"
             />
           </div>
@@ -128,6 +130,7 @@ export default function Home() {
                 src="https://images.unsplash.com/photo-1653389525308-e7ab9fc0c260"
                 alt="Algorithm Visualization"
                 fill
+                sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover"
               />
             </div>
@@ -136,6 +139,7 @@ export default function Home() {
                 src="https://images.unsplash.com/photo-1653389526309-f8e2e75f8aaf"
                 alt="Progress Tracking"
                 fill
+                sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover"
               />
             </div>
