@@ -1,125 +1,112 @@
-import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
+import { verifyToken } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 
 export async function GET(request) {
   try {
-    // Validate token
-    const token = request.headers.get('authorization')?.split(' ')[1];
-    const decoded = verifyToken(token);
+    // Verify token
+    const token = request.headers.get('Authorization')?.split(' ')[1];
+    const payload = verifyToken(token);
     
-    if (!decoded) {
+    if (!payload) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
       );
     }
-    
-    // Connect to database
+
+    // Connect to the database
     const { db } = await connectToDatabase();
+
+    // Get user
+    const user = await db.collection('users').findOne({
+      _id: new ObjectId(payload.userId),
+    });
     
+    if (!user) {
+      return NextResponse.json(
+        { message: 'User not found' },
+        { status: 404 }
+      );
+    }
+
     // Get all problems
-    const problems = await db.collection('problems').find({}).toArray();
+    const problems = await db.collection('problems').find().toArray();
     
-    // Get user's solved problems
+    // Get solved problems
     const solvedProblems = await db.collection('solvedProblems')
-      .find({ userId: decoded.userId })
+      .find({ userId: payload.userId })
+      .sort({ solvedAt: -1 })
       .toArray();
     
-    const solvedIds = solvedProblems.map(p => p.problemId);
+    // Count by difficulty
+    const easyTotal = problems.filter(p => p.difficulty === 'Easy').length;
+    const mediumTotal = problems.filter(p => p.difficulty === 'Medium').length;
+    const hardTotal = problems.filter(p => p.difficulty === 'Hard').length;
     
-    // Calculate stats per topic
-    const topicStats = {};
-    const difficultyStats = {
-      easy: { total: 0, solved: 0 },
-      medium: { total: 0, solved: 0 },
-      hard: { total: 0, solved: 0 }
+    const easyCount = solvedProblems.filter(sp => {
+      const problem = problems.find(p => p._id.toString() === sp.problemId.toString());
+      return problem && problem.difficulty === 'Easy';
+    }).length;
+    
+    const mediumCount = solvedProblems.filter(sp => {
+      const problem = problems.find(p => p._id.toString() === sp.problemId.toString());
+      return problem && problem.difficulty === 'Medium';
+    }).length;
+    
+    const hardCount = solvedProblems.filter(sp => {
+      const problem = problems.find(p => p._id.toString() === sp.problemId.toString());
+      return problem && problem.difficulty === 'Hard';
+    }).length;
+
+    // Group by topic for progress
+    const topics = [...new Set(problems.map(p => p.topic))];
+    const topicProgress = topics.map(topic => {
+      const topicProblems = problems.filter(p => p.topic === topic);
+      const solvedTopicProblems = solvedProblems.filter(sp => {
+        const problem = problems.find(p => p._id.toString() === sp.problemId.toString());
+        return problem && problem.topic === topic;
+      });
+      
+      return {
+        name: topic,
+        total: topicProblems.length,
+        solved: solvedTopicProblems.length,
+      };
+    }).sort((a, b) => (b.solved / b.total) - (a.solved / a.total));
+
+    // Get recently solved problems (last 5)
+    const recentlySolved = solvedProblems.slice(0, 5).map(sp => {
+      const problem = problems.find(p => p._id.toString() === sp.problemId.toString());
+      return {
+        id: sp.problemId.toString(),
+        title: problem?.title || 'Unknown Problem',
+        difficulty: problem?.difficulty || 'Unknown',
+        topic: problem?.topic || 'Unknown',
+        timeSpent: sp.timeSpent,
+        solvedAt: sp.solvedAt,
+      };
+    });
+
+    // Calculate stats
+    const stats = {
+      totalSolved: solvedProblems.length,
+      easyCount,
+      mediumCount,
+      hardCount,
+      timeSpent: user.stats.timeSpent || 0,
+      streak: user.stats.streak || 0,
+      joinedDate: user.createdAt,
+      topicProgress,
+      recentlySolved,
     };
     
-    // Calculate total problems by topic and difficulty
-    problems.forEach(problem => {
-      const topic = problem.topic || 'Uncategorized';
-      const difficulty = (problem.difficulty || 'medium').toLowerCase();
-      const isSolved = solvedIds.includes(problem._id.toString());
-      
-      // Update topic stats
-      if (!topicStats[topic]) {
-        topicStats[topic] = { total: 0, solved: 0 };
-      }
-      
-      topicStats[topic].total++;
-      if (isSolved) {
-        topicStats[topic].solved++;
-      }
-      
-      // Update difficulty stats
-      if (difficultyStats[difficulty]) {
-        difficultyStats[difficulty].total++;
-        if (isSolved) {
-          difficultyStats[difficulty].solved++;
-        }
-      }
-    });
-    
-    // Calculate overall stats
-    const totalProblems = problems.length;
-    const totalSolved = solvedProblems.length;
-    const completionPercentage = totalProblems > 0 
-      ? Math.round((totalSolved / totalProblems) * 100) 
-      : 0;
-    
-    // Calculate average time spent
-    const avgTimeSpent = solvedProblems.length > 0
-      ? Math.round(solvedProblems.reduce((sum, p) => sum + (p.timeSpent || 0), 0) / solvedProblems.length)
-      : 0;
-    
-    // Format topic stats for response
-    const formattedTopicStats = Object.entries(topicStats).map(([topic, stats]) => ({
-      topic,
-      total: stats.total,
-      solved: stats.solved,
-      completionPercentage: stats.total > 0 
-        ? Math.round((stats.solved / stats.total) * 100) 
-        : 0
-    }));
-    
-    // Sort topics by completion percentage ascending (focus areas first)
-    formattedTopicStats.sort((a, b) => a.completionPercentage - b.completionPercentage);
-    
-    // Calculate streak (for demo purposes)
-    // In a real app, this would be based on solve dates
-    const streak = Math.min(7, Math.max(0, totalSolved));
-    
-    // Calculate recent activity (for demo purposes)
-    // In a real app, this would be based on actual dates
-    const recentActivity = solvedProblems
-      .slice(0, 10)
-      .map(solved => {
-        const problem = problems.find(p => p._id.toString() === solved.problemId);
-        return {
-          id: solved.problemId,
-          title: problem?.title || 'Unknown Problem',
-          solvedAt: solved.solvedAt || new Date().toISOString(),
-          difficulty: problem?.difficulty || 'medium'
-        };
-      });
-    
-    return NextResponse.json({
-      summary: {
-        totalProblems,
-        totalSolved,
-        completionPercentage,
-        avgTimeSpent,
-        streak
-      },
-      topicStats: formattedTopicStats,
-      difficultyStats,
-      recentActivity
-    });
+    return NextResponse.json(stats);
   } catch (error) {
     console.error('Error fetching user stats:', error);
     return NextResponse.json(
-      { message: 'Error fetching user statistics' },
+      { message: 'Error fetching user stats' },
       { status: 500 }
     );
   }

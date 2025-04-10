@@ -43,25 +43,26 @@ export async function GET(request) {
       };
     }).filter(Boolean); // Remove null entries
     
-    // Get all topics from problems
-    const allTopics = [...new Set(problems.map(p => p.topic))].filter(Boolean);
+    // Get critical topics
+    const response = await fetch(`${request.nextUrl.origin}/api/user/critical-topics`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     
-    // Create sample critical topics if needed for demonstration
-    // In a real app, this would be based on actual user performance
-    const criticalTopics = allTopics.slice(0, 3).map(name => ({
-      name,
-      completionRate: 0.4,
-      avgTimeSpent: 45
-    }));
-    
-    // If we have no solved problems yet, just return an empty array
-    if (formattedSolvedProblems.length === 0) {
-      return NextResponse.json({ revisionProblems: [] });
+    if (!response.ok) {
+      throw new Error('Failed to fetch critical topics');
     }
     
-    // Get revision problems (or just return some solved problems for the demo)
-    // In a real app with sufficient data, we would use the getRevisionProblems function
-    const revisionProblems = formattedSolvedProblems.slice(0, 5);
+    const { criticalTopics } = await response.json();
+    
+    // Get revision problems
+    const revisionProblems = getRevisionProblems(
+      problems,
+      formattedSolvedProblems,
+      criticalTopics,
+      5 // Get 5 problems for weekly revision
+    );
     
     return NextResponse.json({ revisionProblems });
   } catch (error) {

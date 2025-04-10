@@ -2,313 +2,270 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
-import ProgressBar from '@/components/ProgressBar';
-import HeatMap from '@/components/HeatMap';
 import RadarChart from '@/components/RadarChart';
+import HeatMap from '@/components/HeatMap';
+import ProgressBar from '@/components/ProgressBar';
 
 export default function Analytics() {
   const router = useRouter();
-  const [stats, setStats] = useState(null);
+  const [analytics, setAnalytics] = useState({
+    topicPerformance: [],
+    difficultyStats: {
+      easy: { total: 0, solved: 0 },
+      medium: { total: 0, solved: 0 },
+      hard: { total: 0, solved: 0 }
+    },
+    timePerformance: {
+      averageTime: 0,
+      fastestSolve: { problem: '', time: 0 },
+      slowestSolve: { problem: '', time: 0 }
+    },
+    criticalTopics: [],
+    monthlyActivity: []
+  });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState(null);
+
   useEffect(() => {
-    // Check if user is authenticated
+    // Check if user is logged in
     const token = localStorage.getItem('token');
+    
     if (!token) {
       router.push('/login');
       return;
     }
-    
-    fetchStats(token);
-  }, [router]);
-  
-  const fetchStats = async (token) => {
-    try {
-      setLoading(true);
-      
-      const response = await fetch('/api/user/stats', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch statistics');
-      }
-      
-      const data = await response.json();
-      setStats(data);
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  // Prepare data for Radar Chart
-  const prepareRadarData = () => {
-    if (!stats?.topicStats) return null;
-    
-    const topicData = stats.topicStats.slice(0, 6).map(topic => ({
-      topic: topic.topic,
-      completionRate: topic.completionPercentage / 100
-    }));
-    
-    return {
-      labels: topicData.map(item => item.topic),
-      datasets: [
-        {
-          label: 'Completion Rate',
-          data: topicData.map(item => item.completionRate)
-        }
-      ]
-    };
-  };
-  
-  // Prepare data for Heat Map
-  const prepareHeatMapData = () => {
-    // In a real app, this would come from actual data
-    // For demo, we'll create simulated data
-    if (!stats) return [];
-    
-    const days = 120; // Show last 4 months
-    const today = new Date();
-    const data = [];
-    
-    // Create activity data for the last 120 days
-    for (let i = 0; i < days; i++) {
-      const date = new Date();
-      date.setDate(today.getDate() - i);
-      
-      // More activity for recent days, less for older days
-      // Just for demonstration
-      const randomValue = i < 7 
-        ? Math.floor(Math.random() * 3) + 1 
-        : i < 30 
-          ? Math.random() > 0.6 ? Math.floor(Math.random() * 3) : 0
-          : Math.random() > 0.8 ? 1 : 0;
-      
-      if (randomValue > 0) {
-        data.push({
-          date: date.toISOString().split('T')[0],
-          count: randomValue
+
+    // Fetch analytics data
+    const fetchAnalytics = async () => {
+      try {
+        const response = await fetch('/api/user/critical-topics', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch analytics data');
+        }
+
+        const data = await response.json();
+        setAnalytics(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-    }
-    
-    return data;
-  };
-  
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navbar />
-      
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
-            Analytics Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Track your progress and identify areas for improvement
-          </p>
+    };
+
+    fetchAnalytics();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-8">
+          <p>{error}</p>
         </div>
-        
-        {loading ? (
-          <div className="animate-pulse space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 bg-white dark:bg-gray-800 rounded-lg shadow-md"></div>
-              ))}
+        <button 
+          onClick={() => window.location.reload()} 
+          className="btn-primary"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          Performance Analytics
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Visualize your progress and identify areas for improvement
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Topic Performance Radar */}
+        <div className="dashboard-card">
+          <h2 className="section-title">Topic Performance</h2>
+          <div className="h-80">
+            <RadarChart data={analytics.topicPerformance || []} />
+          </div>
+        </div>
+
+        {/* Critical Topics Heatmap */}
+        <div className="dashboard-card">
+          <h2 className="section-title">Critical Topics Analysis</h2>
+          <div className="h-80">
+            <HeatMap data={analytics.criticalTopics || []} />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Difficulty Distribution */}
+        <div className="dashboard-card">
+          <h2 className="section-title">Difficulty Distribution</h2>
+          <div className="space-y-6 mt-4">
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Easy</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {analytics.difficultyStats?.easy?.solved || 0}/{analytics.difficultyStats?.easy?.total || 0}
+                </span>
+              </div>
+              <ProgressBar 
+                percentage={analytics.difficultyStats?.easy?.total ? 
+                  (analytics.difficultyStats.easy.solved / analytics.difficultyStats.easy.total) * 100 : 0} 
+                color="green" 
+              />
             </div>
-            <div className="h-80 bg-white dark:bg-gray-800 rounded-lg shadow-md"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[...Array(2)].map((_, i) => (
-                <div key={i} className="h-64 bg-white dark:bg-gray-800 rounded-lg shadow-md"></div>
-              ))}
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Medium</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {analytics.difficultyStats?.medium?.solved || 0}/{analytics.difficultyStats?.medium?.total || 0}
+                </span>
+              </div>
+              <ProgressBar 
+                percentage={analytics.difficultyStats?.medium?.total ? 
+                  (analytics.difficultyStats.medium.solved / analytics.difficultyStats.medium.total) * 100 : 0} 
+                color="yellow" 
+              />
+            </div>
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hard</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {analytics.difficultyStats?.hard?.solved || 0}/{analytics.difficultyStats?.hard?.total || 0}
+                </span>
+              </div>
+              <ProgressBar 
+                percentage={analytics.difficultyStats?.hard?.total ? 
+                  (analytics.difficultyStats.hard.solved / analytics.difficultyStats.hard.total) * 100 : 0} 
+                color="red" 
+              />
             </div>
           </div>
-        ) : error ? (
-          <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-6 rounded-lg">
-            <p>Error: {error}</p>
+        </div>
+
+        {/* Time Performance */}
+        <div className="dashboard-card">
+          <h2 className="section-title">Time Performance</h2>
+          <div className="space-y-4 mt-4">
+            <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Average solving time</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {analytics.timePerformance?.averageTime || 0} minutes
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                <p className="text-sm text-green-600 dark:text-green-400">Fastest solve</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                  {analytics.timePerformance?.fastestSolve?.time || 0} minutes
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {analytics.timePerformance?.fastestSolve?.problem || 'N/A'}
+                </p>
+              </div>
+              <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+                <p className="text-sm text-red-600 dark:text-red-400">Slowest solve</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                  {analytics.timePerformance?.slowestSolve?.time || 0} minutes
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {analytics.timePerformance?.slowestSolve?.problem || 'N/A'}
+                </p>
+              </div>
+            </div>
           </div>
-        ) : (
-          <>
-            {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  Total Problems Solved
-                </h2>
-                <p className="text-3xl font-bold text-gray-800 dark:text-white">
-                  {stats?.summary?.totalSolved || 0}
-                  <span className="text-lg font-normal text-gray-500 dark:text-gray-400 ml-1">
-                    /{stats?.summary?.totalProblems || 0}
-                  </span>
+        </div>
+      </div>
+
+      {/* Critical Topics List */}
+      <div className="dashboard-card mb-8">
+        <h2 className="section-title">Critical Topics to Focus On</h2>
+        {analytics.criticalTopics && analytics.criticalTopics.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {analytics.criticalTopics.map((topic, index) => (
+              <div key={index} className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0 text-red-500 dark:text-red-400 mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">{topic.name}</h3>
+                </div>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  {topic.reason}
                 </p>
                 <div className="mt-3">
-                  <ProgressBar 
-                    percentage={stats?.summary?.completionPercentage || 0} 
-                    color="bg-indigo-600"
-                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Solved: {topic.solved}/{topic.total} problems ({Math.round((topic.solved / topic.total) * 100)}%)
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Average time: {topic.averageTime} minutes
+                  </p>
                 </div>
               </div>
-              
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  Avg. Time per Problem
-                </h2>
-                <p className="text-3xl font-bold text-gray-800 dark:text-white">
-                  {stats?.summary?.avgTimeSpent || 0}
-                  <span className="text-lg font-normal text-gray-500 dark:text-gray-400 ml-1">
-                    min
-                  </span>
-                </p>
-                <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                  Based on your solved problems
-                </p>
-              </div>
-              
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  Current Streak
-                </h2>
-                <p className="text-3xl font-bold text-gray-800 dark:text-white">
-                  {stats?.summary?.streak || 0}
-                  <span className="text-lg font-normal text-gray-500 dark:text-gray-400 ml-1">
-                    days
-                  </span>
-                </p>
-                <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                  Keep it going! Solve problems daily.
-                </p>
-              </div>
-              
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                  Difficulty Breakdown
-                </h2>
-                <div className="mt-3 space-y-2">
-                  <div>
-                    <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="text-green-600 dark:text-green-400">Easy</span>
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {stats?.difficultyStats?.easy?.solved || 0}/{stats?.difficultyStats?.easy?.total || 0}
-                      </span>
-                    </div>
-                    <ProgressBar 
-                      percentage={
-                        stats?.difficultyStats?.easy?.total 
-                          ? Math.round((stats.difficultyStats.easy.solved / stats.difficultyStats.easy.total) * 100) 
-                          : 0
-                      } 
-                      color="bg-green-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="text-yellow-600 dark:text-yellow-400">Medium</span>
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {stats?.difficultyStats?.medium?.solved || 0}/{stats?.difficultyStats?.medium?.total || 0}
-                      </span>
-                    </div>
-                    <ProgressBar 
-                      percentage={
-                        stats?.difficultyStats?.medium?.total 
-                          ? Math.round((stats.difficultyStats.medium.solved / stats.difficultyStats.medium.total) * 100) 
-                          : 0
-                      } 
-                      color="bg-yellow-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="text-red-600 dark:text-red-400">Hard</span>
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {stats?.difficultyStats?.hard?.solved || 0}/{stats?.difficultyStats?.hard?.total || 0}
-                      </span>
-                    </div>
-                    <ProgressBar 
-                      percentage={
-                        stats?.difficultyStats?.hard?.total 
-                          ? Math.round((stats.difficultyStats.hard.solved / stats.difficultyStats.hard.total) * 100) 
-                          : 0
-                      } 
-                      color="bg-red-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Activity Heat Map */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-                Activity Calendar
-              </h2>
-              <div className="h-48">
-                <HeatMap data={prepareHeatMapData()} />
-              </div>
-            </div>
-            
-            {/* Topic Analysis and Recent Activity */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Topic Analysis */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-                  Topic Analysis
-                </h2>
-                
-                {stats?.topicStats && stats.topicStats.length > 0 ? (
-                  <div className="h-64">
-                    <RadarChart data={prepareRadarData()} />
-                  </div>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400">
-                    Solve more problems to see topic analysis.
-                  </p>
-                )}
-              </div>
-              
-              {/* Recent Activity */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-                  Recent Activity
-                </h2>
-                
-                {stats?.recentActivity && stats.recentActivity.length > 0 ? (
-                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {stats.recentActivity.map((activity, index) => (
-                      <div key={index} className="py-3">
-                        <div className="flex items-center">
-                          <div className={`w-2 h-2 rounded-full mr-2 ${
-                            activity.difficulty === 'easy' ? 'bg-green-500' :
-                            activity.difficulty === 'hard' ? 'bg-red-500' : 'bg-yellow-500'
-                          }`}></div>
-                          <p className="text-gray-800 dark:text-white font-medium">
-                            {activity.title}
-                          </p>
-                        </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 ml-4">
-                          {new Date(activity.solvedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400">
-                    No recent activity. Start solving problems!
-                  </p>
-                )}
-              </div>
-            </div>
-          </>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 dark:text-gray-400">
+            Not enough data to determine critical topics yet. Keep solving problems!
+          </p>
         )}
-      </main>
+      </div>
+
+      {/* Monthly Activity */}
+      <div className="dashboard-card">
+        <h2 className="section-title">Monthly Problem Solving Activity</h2>
+        <div className="grid grid-cols-12 gap-2 mt-4">
+          {Array.from({ length: 30 }, (_, i) => {
+            const dayInfo = analytics.monthlyActivity && analytics.monthlyActivity[i];
+            const activityLevel = dayInfo && dayInfo.count
+              ? dayInfo.count === 0
+                ? 'bg-gray-100 dark:bg-gray-700'
+                : dayInfo.count < 2
+                  ? 'bg-green-100 dark:bg-green-900/30'
+                  : dayInfo.count < 4
+                    ? 'bg-green-300 dark:bg-green-700'
+                    : 'bg-green-500 dark:bg-green-500'
+              : 'bg-gray-100 dark:bg-gray-700';
+            
+            return (
+              <div
+                key={i}
+                className={`h-8 rounded-sm ${activityLevel} cursor-pointer transition-colors duration-200`}
+                title={dayInfo ? `${dayInfo.date}: ${dayInfo.count} problem(s)` : `No activity`}
+              />
+            );
+          })}
+        </div>
+        <div className="flex justify-end mt-2">
+          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-2">
+            <span>Less</span>
+            <div className="bg-gray-100 dark:bg-gray-700 w-3 h-3 rounded-sm"></div>
+            <div className="bg-green-100 dark:bg-green-900/30 w-3 h-3 rounded-sm"></div>
+            <div className="bg-green-300 dark:bg-green-700 w-3 h-3 rounded-sm"></div>
+            <div className="bg-green-500 dark:bg-green-500 w-3 h-3 rounded-sm"></div>
+            <span>More</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
