@@ -3,7 +3,7 @@ import axios from 'axios';
 /**
  * Base URL for Codeforces API
  */
-const CF_API_BASE = 'https://codeforces.com/api';
+const API_BASE_URL = 'https://codeforces.com/api';
 
 /**
  * Get user information from Codeforces API
@@ -12,23 +12,26 @@ const CF_API_BASE = 'https://codeforces.com/api';
  */
 export async function getUserInfo(handle) {
   try {
-    const response = await axios.get(`${CF_API_BASE}/user.info?handles=${handle}`);
+    const response = await axios.get(`${API_BASE_URL}/user.info`, {
+      params: { handles: handle }
+    });
     
     if (response.data.status === 'OK') {
       return {
         success: true,
         user: response.data.result[0]
       };
+    } else {
+      return {
+        success: false,
+        error: 'Unable to fetch user information'
+      };
     }
-    
-    return {
-      success: false,
-      error: 'Could not fetch user information'
-    };
   } catch (error) {
+    console.error('Error fetching user info:', error);
     return {
       success: false,
-      error: error.response?.data?.comment || 'Error fetching user data'
+      error: error.response?.data?.comment || 'Network error'
     };
   }
 }
@@ -40,23 +43,26 @@ export async function getUserInfo(handle) {
  */
 export async function getUserSubmissions(handle) {
   try {
-    const response = await axios.get(`${CF_API_BASE}/user.status?handle=${handle}&from=1&count=100`);
+    const response = await axios.get(`${API_BASE_URL}/user.status`, {
+      params: { handle, from: 1, count: 100 }
+    });
     
     if (response.data.status === 'OK') {
       return {
         success: true,
         submissions: response.data.result
       };
+    } else {
+      return {
+        success: false,
+        error: 'Unable to fetch submissions'
+      };
     }
-    
-    return {
-      success: false,
-      error: 'Could not fetch user submissions'
-    };
   } catch (error) {
+    console.error('Error fetching user submissions:', error);
     return {
       success: false,
-      error: error.response?.data?.comment || 'Error fetching submissions'
+      error: error.response?.data?.comment || 'Network error'
     };
   }
 }
@@ -68,23 +74,26 @@ export async function getUserSubmissions(handle) {
  */
 export async function getUserRatingHistory(handle) {
   try {
-    const response = await axios.get(`${CF_API_BASE}/user.rating?handle=${handle}`);
+    const response = await axios.get(`${API_BASE_URL}/user.rating`, {
+      params: { handle }
+    });
     
     if (response.data.status === 'OK') {
       return {
         success: true,
-        contests: response.data.result
+        ratingHistory: response.data.result
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Unable to fetch rating history'
       };
     }
-    
-    return {
-      success: false,
-      error: 'Could not fetch rating history'
-    };
   } catch (error) {
+    console.error('Error fetching user rating history:', error);
     return {
       success: false,
-      error: error.response?.data?.comment || 'Error fetching rating history'
+      error: error.response?.data?.comment || 'Network error'
     };
   }
 }
@@ -96,7 +105,9 @@ export async function getUserRatingHistory(handle) {
  */
 export async function getProblemSet(params = {}) {
   try {
-    const response = await axios.get(`${CF_API_BASE}/problemset.problems`, { params });
+    const response = await axios.get(`${API_BASE_URL}/problemset.problems`, {
+      params
+    });
     
     if (response.data.status === 'OK') {
       return {
@@ -104,16 +115,17 @@ export async function getProblemSet(params = {}) {
         problems: response.data.result.problems,
         problemStatistics: response.data.result.problemStatistics
       };
+    } else {
+      return {
+        success: false,
+        error: 'Unable to fetch problem set'
+      };
     }
-    
-    return {
-      success: false,
-      error: 'Could not fetch problem set'
-    };
   } catch (error) {
+    console.error('Error fetching problem set:', error);
     return {
       success: false,
-      error: error.response?.data?.comment || 'Error fetching problem set'
+      error: error.response?.data?.comment || 'Network error'
     };
   }
 }
@@ -127,54 +139,76 @@ export async function getCuratedProblemList() {
     const { success, problems, error } = await getProblemSet();
     
     if (!success) {
-      return { success: false, error };
+      throw new Error(error);
     }
     
-    // Filter out problems without a rating (difficulty)
+    // Filter out problems without ratings
     const ratedProblems = problems.filter(p => p.rating);
     
-    // Group problems by rating
-    const groupedByRating = {};
-    ratedProblems.forEach(problem => {
-      if (!groupedByRating[problem.rating]) {
-        groupedByRating[problem.rating] = [];
-      }
-      groupedByRating[problem.rating].push(problem);
-    });
+    // Group by difficulty ranges
+    const difficultyRanges = {
+      beginner: [800, 1200],
+      easy: [1200, 1500],
+      medium: [1500, 1800],
+      hard: [1800, 2100],
+      expert: [2100, 2500],
+      master: [2500, 3500]
+    };
     
-    // Get curated problems from different rating ranges
-    const curated = [];
-    const ratingRanges = [
-      { min: 800, max: 1000, count: 15 },   // Beginner
-      { min: 1100, max: 1300, count: 20 },  // Easy
-      { min: 1400, max: 1600, count: 25 },  // Medium
-      { min: 1700, max: 1900, count: 20 },  // Hard
-      { min: 2000, max: 2400, count: 15 },  // Advanced
-      { min: 2500, max: 3500, count: 5 }    // Expert
-    ];
+    const groupedProblems = {};
     
-    ratingRanges.forEach(range => {
-      const problemsInRange = ratedProblems.filter(p => 
-        p.rating >= range.min && p.rating <= range.max
+    Object.entries(difficultyRanges).forEach(([level, [min, max]]) => {
+      groupedProblems[level] = ratedProblems.filter(p => 
+        p.rating >= min && p.rating < max
       );
-      
-      // Add a subset of problems from this range to the curated list
-      const selectedFromRange = problemsInRange
-        .sort(() => 0.5 - Math.random()) // Shuffle
-        .slice(0, range.count);
-        
-      curated.push(...selectedFromRange);
     });
     
-    return { 
-      success: true, 
-      problems: curated.slice(0, 100) 
+    // Select a balanced distribution of problems
+    const distribution = {
+      beginner: 15,
+      easy: 20,
+      medium: 25,
+      hard: 20,
+      expert: 15,
+      master: 5
     };
+    
+    // Randomly select problems from each difficulty range
+    const curatedList = [];
+    
+    Object.entries(distribution).forEach(([level, count]) => {
+      const problemsInRange = groupedProblems[level];
+      
+      // If we don't have enough problems in this range, take all of them
+      if (problemsInRange.length <= count) {
+        curatedList.push(...problemsInRange);
+      } else {
+        // Randomly select 'count' problems
+        const selectedIndices = new Set();
+        while (selectedIndices.size < count) {
+          const randomIndex = Math.floor(Math.random() * problemsInRange.length);
+          selectedIndices.add(randomIndex);
+        }
+        
+        selectedIndices.forEach(index => {
+          curatedList.push(problemsInRange[index]);
+        });
+      }
+    });
+    
+    // Add URL and format the problems
+    return curatedList.map(problem => ({
+      id: `${problem.contestId}${problem.index}`,
+      contestId: problem.contestId,
+      index: problem.index,
+      name: problem.name,
+      rating: problem.rating,
+      tags: problem.tags,
+      url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`
+    }));
   } catch (error) {
-    return {
-      success: false,
-      error: error.message || 'Error creating curated problem list'
-    };
+    console.error('Error creating curated problem list:', error);
+    return [];
   }
 }
 
@@ -185,69 +219,106 @@ export async function getCuratedProblemList() {
  */
 export async function analyzeUserPerformance(handle) {
   try {
-    const [userInfoResponse, submissionsResponse, ratingResponse] = await Promise.all([
-      getUserInfo(handle),
-      getUserSubmissions(handle),
-      getUserRatingHistory(handle)
-    ]);
+    // Fetch user submissions
+    const { success, submissions, error } = await getUserSubmissions(handle);
     
-    if (!userInfoResponse.success) {
-      return userInfoResponse;
+    if (!success) {
+      throw new Error(error);
     }
     
-    const user = userInfoResponse.user;
-    const submissions = submissionsResponse.success ? submissionsResponse.submissions : [];
-    const ratingHistory = ratingResponse.success ? ratingResponse.contests : [];
+    // Filter accepted submissions only
+    const acceptedSubmissions = submissions.filter(
+      sub => sub.verdict === 'OK'
+    );
     
-    // Count solved problems (distinct)
+    // Get unique solved problems
     const solvedProblems = new Set();
-    const submissionsByVerdict = {};
-    const submissionsByTag = {};
+    const problemDetails = {};
+    const tagFrequency = {};
+    const levelFrequency = {};
     
-    submissions.forEach(submission => {
-      // Count by verdict
-      const verdict = submission.verdict || 'UNKNOWN';
-      submissionsByVerdict[verdict] = (submissionsByVerdict[verdict] || 0) + 1;
+    acceptedSubmissions.forEach(submission => {
+      const problemId = `${submission.problem.contestId}${submission.problem.index}`;
       
-      // Track solved problems
-      if (verdict === 'OK') {
-        const problemId = `${submission.problem.contestId}${submission.problem.index}`;
+      if (!solvedProblems.has(problemId)) {
         solvedProblems.add(problemId);
+        problemDetails[problemId] = submission.problem;
         
-        // Count by tag
-        if (submission.problem.tags) {
-          submission.problem.tags.forEach(tag => {
-            submissionsByTag[tag] = (submissionsByTag[tag] || 0) + 1;
-          });
+        // Count tag frequency
+        submission.problem.tags.forEach(tag => {
+          tagFrequency[tag] = (tagFrequency[tag] || 0) + 1;
+        });
+        
+        // Count difficulty level frequency
+        const rating = submission.problem.rating;
+        if (rating) {
+          const level = getRatingLevel(rating);
+          levelFrequency[level] = (levelFrequency[level] || 0) + 1;
         }
       }
     });
     
+    // Sort tags by frequency
+    const sortedTags = Object.entries(tagFrequency)
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag, count]) => ({
+        tag,
+        count,
+        percentage: Math.round((count / solvedProblems.size) * 100)
+      }));
+    
+    // Prepare distribution by difficulty level
+    const levelDistribution = Object.entries(levelFrequency)
+      .map(([level, count]) => ({
+        level,
+        count,
+        percentage: Math.round((count / solvedProblems.size) * 100)
+      }))
+      .sort((a, b) => getLevelSortValue(a.level) - getLevelSortValue(b.level));
+    
     return {
-      success: true,
-      user,
-      stats: {
-        rating: user.rating,
-        maxRating: user.maxRating,
-        rank: user.rank,
-        solvedCount: solvedProblems.size,
-        submissionCount: submissions.length,
-        submissionsByVerdict,
-        submissionsByTag,
-        ratingHistory: ratingHistory.map(contest => ({
-          contestId: contest.contestId,
-          contestName: contest.contestName,
-          rank: contest.rank,
-          oldRating: contest.oldRating,
-          newRating: contest.newRating,
-          ratingChange: contest.newRating - contest.oldRating
-        }))
-      }
+      solvedCount: solvedProblems.size,
+      strongTags: sortedTags.slice(0, 5),
+      weakTags: sortedTags.slice(-5).reverse(),
+      levelDistribution
     };
   } catch (error) {
+    console.error('Error analyzing user performance:', error);
     return {
-      success: false,
-      error: error.message || 'Error analyzing user performance'
+      solvedCount: 0,
+      strongTags: [],
+      weakTags: [],
+      levelDistribution: []
     };
   }
+}
+
+// Helper function to determine rating level
+function getRatingLevel(rating) {
+  if (rating < 1200) return 'Newbie';
+  if (rating < 1400) return 'Pupil';
+  if (rating < 1600) return 'Specialist';
+  if (rating < 1900) return 'Expert';
+  if (rating < 2100) return 'Candidate Master';
+  if (rating < 2400) return 'Master';
+  if (rating < 2600) return 'International Master';
+  if (rating < 3000) return 'Grandmaster';
+  return 'International Grandmaster';
+}
+
+// Helper function to sort levels
+function getLevelSortValue(level) {
+  const levels = [
+    'Newbie',
+    'Pupil',
+    'Specialist',
+    'Expert',
+    'Candidate Master',
+    'Master',
+    'International Master',
+    'Grandmaster',
+    'International Grandmaster'
+  ];
+  
+  return levels.indexOf(level);
 }
