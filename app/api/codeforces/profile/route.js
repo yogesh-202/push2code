@@ -1,35 +1,47 @@
 import { NextResponse } from 'next/server';
-import { analyzeUserPerformance } from '@/utils/codeforcesApi';
-import { verifyToken } from '@/lib/auth';
+import { 
+  getUserInfo, 
+  getUserRatingHistory, 
+  analyzeUserPerformance 
+} from '@/utils/codeforcesApi';
 
 export async function GET(request) {
   try {
-    // Get user's CF handle from query parameters
     const { searchParams } = new URL(request.url);
-    const cfHandle = searchParams.get('handle');
+    const handle = searchParams.get('handle');
     
-    if (!cfHandle) {
+    if (!handle) {
       return NextResponse.json(
         { error: 'Codeforces handle is required' },
         { status: 400 }
       );
     }
     
-    // Get user profile data
-    const profileData = await analyzeUserPerformance(cfHandle);
+    // Fetch user profile information
+    const userResult = await getUserInfo(handle);
     
-    if (!profileData.success) {
+    if (!userResult.success) {
       return NextResponse.json(
-        { error: profileData.error },
+        { error: userResult.error || 'User not found' },
         { status: 404 }
       );
     }
     
-    return NextResponse.json(profileData);
+    // Fetch rating history
+    const ratingResult = await getUserRatingHistory(handle);
+    
+    // Fetch user performance analytics
+    const performance = await analyzeUserPerformance(handle);
+    
+    return NextResponse.json({
+      user: userResult.user,
+      ratingHistory: ratingResult.success ? ratingResult.ratingHistory : [],
+      performance
+    });
   } catch (error) {
     console.error('Error fetching Codeforces profile:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch profile data' },
+      { error: 'Failed to fetch Codeforces profile' },
       { status: 500 }
     );
   }

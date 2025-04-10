@@ -1,37 +1,48 @@
 import { NextResponse } from 'next/server';
+import { verifyToken } from '@/lib/auth';
 import { getCuratedProblemList } from '@/utils/codeforcesApi';
 import { connectToDatabase } from '@/lib/mongodb';
-import { verifyToken } from '@/lib/auth';
 
 export async function GET(request) {
   try {
-    // Get the curated problem list
-    const { success, problems, error } = await getCuratedProblemList();
+    // Validate token
+    const token = request.headers.get('authorization')?.split(' ')[1];
+    const decoded = verifyToken(token);
     
-    if (!success) {
+    if (!decoded) {
       return NextResponse.json(
-        { error },
-        { status: 500 }
+        { message: 'Unauthorized' },
+        { status: 401 }
       );
     }
-
-    // Transform the problems into a more convenient format
-    const formattedProblems = problems.map(problem => ({
-      id: `${problem.contestId}${problem.index}`,
-      contestId: problem.contestId,
-      index: problem.index,
-      name: problem.name,
-      type: problem.type,
-      rating: problem.rating,
-      tags: problem.tags,
-      url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`
-    }));
     
-    return NextResponse.json({ problems: formattedProblems });
+    // Connect to database to store problems if needed
+    const { db } = await connectToDatabase();
+    
+    // Check if we already have cached problems
+    const cachedProblems = await db.collection('cfProblems').find({}).toArray();
+    
+    if (cachedProblems.length > 0) {
+      return NextResponse.json({
+        problems: cachedProblems
+      });
+    }
+    
+    // If not cached, fetch from Codeforces API
+    const problems = await getCuratedProblemList();
+    
+    if (problems.length > 0) {
+      // Cache the problems in database
+      await db.collection('cfProblems').insertMany(problems);
+    }
+    
+    return NextResponse.json({
+      problems
+    });
   } catch (error) {
     console.error('Error fetching Codeforces problems:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch problem list' },
+      { message: 'Error fetching problems', error: error.message },
       { status: 500 }
     );
   }

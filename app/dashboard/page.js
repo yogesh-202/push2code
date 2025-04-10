@@ -2,303 +2,227 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Navbar from '@/components/Navbar';
+import WeeklyRevisionSheet from '@/components/WeeklyRevisionSheet';
+import CriticalUnsolvedProblems from '@/components/CriticalUnsolvedProblems';
 import Link from 'next/link';
-import Image from 'next/image';
-import ProgressChart from '@/components/ProgressChart';
-import ProgressBar from '@/components/ProgressBar';
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const [stats, setStats] = useState({
-    totalSolved: 0,
-    easyCount: 0,
-    mediumCount: 0,
-    hardCount: 0,
-    timeSpent: 0,
-    topicProgress: [],
-    recentlySolved: []
-  });
-  const [criticalTopics, setCriticalTopics] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
+  
   useEffect(() => {
-    // Check if user is logged in
+    // Check if user is authenticated
     const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
+    const userObj = localStorage.getItem('user');
     
-    if (!token || !userData) {
+    if (!token) {
       router.push('/login');
       return;
     }
-
-    setUser(JSON.parse(userData));
-
-    // Fetch user stats
-    const fetchStats = async () => {
+    
+    if (userObj) {
       try {
-        const response = await fetch('/api/user/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch user statistics');
-        }
-
-        const data = await response.json();
-        setStats(data);
+        setUser(JSON.parse(userObj));
       } catch (err) {
-        setError(err.message);
+        console.error('Error parsing user data:', err);
       }
-    };
-
-    // Fetch critical topics
-    const fetchCriticalTopics = async () => {
-      try {
-        const response = await fetch('/api/user/critical-topics', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch critical topics');
-        }
-
-        const data = await response.json();
-        setCriticalTopics(data.criticalTopics);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-    fetchCriticalTopics();
+    }
+    
+    // Simulate loading of dashboard data
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, [router]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
-
+  
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Welcome back, {user?.username || 'User'}
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Here's your progress overview and recommendations
-        </p>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="dashboard-card">
-          <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-1">Problems Solved</h3>
-          <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{stats.totalSolved}</p>
-        </div>
-        <div className="dashboard-card">
-          <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-1">Total Time Spent</h3>
-          <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-            {Math.floor(stats.timeSpent / 60)} hrs {stats.timeSpent % 60} mins
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Navbar />
+      
+      <div className="container mx-auto px-4 py-8">
+        {/* Welcome Section */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+            {loading ? (
+              <div className="h-9 w-64 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            ) : (
+              <>Welcome, {user?.username || 'Programmer'}!</>
+            )}
+          </h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-300">
+            Track your DSA practice progress and improve your skills
           </p>
         </div>
-        <div className="dashboard-card">
-          <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-1">Difficulty Distribution</h3>
-          <div className="flex gap-2 mt-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-difficulty-easy">
-              Easy: {stats.easyCount}
-            </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-difficulty-medium">
-              Medium: {stats.mediumCount}
-            </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-difficulty-hard">
-              Hard: {stats.hardCount}
-            </span>
+        
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+              Problem Sheets
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Practice problems organized by topic and difficulty
+            </p>
+            <Link 
+              href="/dashboard/problems"
+              className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              View Problem Sheets
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+              Codeforces
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Track your Codeforces profile and practice curated problems
+            </p>
+            <Link 
+              href="/dashboard/codeforces/profile"
+              className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              View Codeforces Dashboard
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+              Performance Analytics
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              View your progress and identify areas for improvement
+            </p>
+            <Link 
+              href="/dashboard/analytics"
+              className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              View Analytics
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
           </div>
         </div>
-        <div className="dashboard-card">
-          <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-1">Consistency</h3>
-          <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-            {stats.streak || 0} days
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Current streak</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        {/* Progress By Topic */}
-        <div className="dashboard-card lg:col-span-2">
-          <h2 className="section-title">Progress by Topic</h2>
-          <div className="space-y-4">
-            {stats.topicProgress && stats.topicProgress.map((topic) => (
-              <div key={topic.name}>
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{topic.name}</span>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {topic.solved}/{topic.total} ({Math.round((topic.solved / topic.total) * 100)}%)
-                  </span>
+        
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Weekly Revision */}
+          <div className="lg:col-span-2">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-6">
+                Weekly Revision Problems
+              </h2>
+              
+              {loading ? (
+                <div className="animate-pulse space-y-6">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  ))}
                 </div>
-                <ProgressBar 
-                  percentage={(topic.solved / topic.total) * 100} 
-                  color={
-                    topic.solved / topic.total < 0.3 ? 'red' : 
-                    topic.solved / topic.total < 0.7 ? 'yellow' : 'green'
-                  }
-                />
+              ) : (
+                <WeeklyRevisionSheet />
+              )}
+            </div>
+          </div>
+          
+          {/* Critical Topics */}
+          <div className="lg:col-span-1">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-6">
+                Critical Topics
+              </h2>
+              
+              {loading ? (
+                <div className="animate-pulse space-y-4">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    These are your weakest topics that need attention:
+                  </p>
+                  
+                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                    <div className="py-3">
+                      <Link 
+                        href="/dashboard/problems"
+                        className="block hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-2 rounded transition-colors"
+                      >
+                        <h3 className="font-medium text-red-600 dark:text-red-400">
+                          View all critical topics
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Work on problems from these topics to improve your skills
+                        </p>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Upcoming Features */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
+                Coming Soon
+              </h2>
+              <ul className="space-y-2 text-gray-600 dark:text-gray-400">
+                <li className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  LeetCode Integration
+                </li>
+                <li className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Study Group Features
+                </li>
+                <li className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Interview Preparation
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        {/* Critical Unsolved Problems */}
+        <div className="mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-6">
+              Critical Unsolved Problems
+            </h2>
+            
+            {loading ? (
+              <div className="animate-pulse space-y-6">
+                <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 mb-6"></div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-48 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Critical Topics */}
-        <div className="dashboard-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="section-title mb-0">Critical Topics</h2>
-            <Link href="/dashboard/analytics" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
-              View detailed analysis →
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {criticalTopics.length > 0 ? (
-              criticalTopics.map((topic, index) => (
-                <div key={index} className="flex items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                  <div className="flex-shrink-0 text-red-500 dark:text-red-400 mr-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{topic.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {topic.reason}
-                    </p>
-                  </div>
-                </div>
-              ))
             ) : (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Not enough data to determine critical topics yet. Keep solving problems!
-              </p>
+              <CriticalUnsolvedProblems />
             )}
           </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Overall Progress Chart */}
-        <div className="dashboard-card lg:col-span-2">
-          <h2 className="section-title">Overall Progress</h2>
-          <div className="h-64">
-            <ProgressChart />
-          </div>
-        </div>
-
-        {/* Recently Solved */}
-        <div className="dashboard-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="section-title mb-0">Recently Solved</h2>
-            <Link href="/dashboard/problems" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
-              View all problems →
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {stats.recentlySolved && stats.recentlySolved.length > 0 ? (
-              stats.recentlySolved.map((problem) => (
-                <div key={problem.id} className="flex items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                  <div className={`flex-shrink-0 mr-3 w-2 h-2 rounded-full bg-difficulty-${problem.difficulty.toLowerCase()}`}></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {problem.title}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {problem.topic} • {new Date(problem.solvedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {problem.timeSpent} mins
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                You haven't solved any problems yet. Start practicing!
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Codeforces Section */}
-      <div className="mt-8 mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Competitive Programming</h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Track your Codeforces performance and practice with curated problem sets
-            </p>
-          </div>
-          <div className="mt-4 md:mt-0">
-            <img 
-              src="https://codeforces.org/s/0/android-icon-192x192.png"
-              alt="Codeforces Logo"
-              className="h-10 w-10"
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4">
-            <h3 className="font-medium text-indigo-800 dark:text-indigo-300 mb-2">Profile Analysis</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Track your Codeforces rating history, view submission statistics, and analyze your performance.
-            </p>
-            <Link href="/dashboard/codeforces/profile">
-              <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm">
-                View Profile
-              </button>
-            </Link>
-          </div>
-          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-            <h3 className="font-medium text-green-800 dark:text-green-300 mb-2">Curated Problem Set</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Practice with our curated list of 100 Codeforces problems organized by difficulty level.
-            </p>
-            <Link href="/dashboard/codeforces/problems">
-              <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm">
-                Practice Problems
-              </button>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-        <Link href="/dashboard/problems">
-          <button className="btn-primary w-full sm:w-auto flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-            Practice Problems
-          </button>
-        </Link>
-        <Link href="/dashboard/analytics">
-          <button className="btn-secondary w-full sm:w-auto flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            View Analytics
-          </button>
-        </Link>
       </div>
     </div>
   );

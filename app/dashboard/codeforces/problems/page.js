@@ -2,267 +2,348 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Navbar from '@/components/Navbar';
 import CodeforcesProblemCard from '@/components/CodeforcesProblemCard';
+import CodeforcesDailyPractice from '@/components/CodeforcesDailyPractice';
 
 export default function CodeforcesProblems() {
+  const router = useRouter();
   const [problems, setProblems] = useState([]);
-  const [filteredProblems, setFilteredProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [solvedProblems, setSolvedProblems] = useState(new Set());
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDifficulty, setSelectedDifficulty] = useState('all');
-  const [selectedTag, setSelectedTag] = useState('all');
+  const [cfHandle, setCfHandle] = useState('');
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [ratingRange, setRatingRange] = useState([800, 3500]);
   const [availableTags, setAvailableTags] = useState([]);
-  const router = useRouter();
+  const [solvedProblems, setSolvedProblems] = useState(new Set());
+  const [activeTab, setActiveTab] = useState('all');
   
-  // Load problems from API
   useEffect(() => {
-    async function fetchProblems() {
-      setLoading(true);
-      
-      try {
-        const response = await fetch('/api/codeforces/problems');
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch problems');
-        }
-        
-        setProblems(data.problems);
-        setFilteredProblems(data.problems);
-        
-        // Extract all unique tags
-        const tags = new Set();
-        data.problems.forEach(problem => {
-          problem.tags?.forEach(tag => tags.add(tag));
-        });
-        setAvailableTags(Array.from(tags).sort());
-        
-        // Load solved problems from localStorage
-        const savedSolved = localStorage.getItem('codeforcesProblems');
-        if (savedSolved) {
-          setSolvedProblems(new Set(JSON.parse(savedSolved)));
-        }
-      } catch (err) {
-        console.error('Error fetching problems:', err);
-        setError(err.message || 'Something went wrong');
-      } finally {
-        setLoading(false);
-      }
+    // Check if user is authenticated
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+    
+    // Get Codeforces handle from localStorage if available
+    const savedHandle = localStorage.getItem('cfHandle');
+    if (savedHandle) {
+      setCfHandle(savedHandle);
     }
     
     fetchProblems();
-  }, []);
+  }, [router]);
   
-  // Filter problems when search term, difficulty, or tag changes
-  useEffect(() => {
-    if (!problems.length) return;
-    
-    let filtered = [...problems];
-    
-    // Filter by search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        problem => problem.name.toLowerCase().includes(term) || 
-                  problem.id.toLowerCase().includes(term)
-      );
-    }
-    
-    // Filter by difficulty
-    if (selectedDifficulty !== 'all') {
-      const [min, max] = selectedDifficulty.split('-').map(Number);
-      filtered = filtered.filter(
-        problem => problem.rating >= min && problem.rating <= max
-      );
-    }
-    
-    // Filter by tag
-    if (selectedTag !== 'all') {
-      filtered = filtered.filter(
-        problem => problem.tags && problem.tags.includes(selectedTag)
-      );
-    }
-    
-    setFilteredProblems(filtered);
-  }, [searchTerm, selectedDifficulty, selectedTag, problems]);
-  
-  // Toggle solved status
-  const handleToggleSolved = (problemId) => {
-    const newSolved = new Set(solvedProblems);
-    
-    if (newSolved.has(problemId)) {
-      newSolved.delete(problemId);
-    } else {
-      newSolved.add(problemId);
-    }
-    
-    setSolvedProblems(newSolved);
-    localStorage.setItem('codeforcesProblems', JSON.stringify(Array.from(newSolved)));
-  };
-  
-  // Group problems by difficulty range for statistics
-  const getDifficultyStats = () => {
-    const stats = {
-      'beginner': { total: 0, solved: 0 },
-      'easy': { total: 0, solved: 0 },
-      'medium': { total: 0, solved: 0 },
-      'hard': { total: 0, solved: 0 },
-      'expert': { total: 0, solved: 0 }
-    };
-    
-    problems.forEach(problem => {
-      let category;
+  async function fetchProblems() {
+    try {
+      setLoading(true);
       
-      if (!problem.rating || problem.rating < 1200) category = 'beginner';
-      else if (problem.rating < 1500) category = 'easy';
-      else if (problem.rating < 1800) category = 'medium';
-      else if (problem.rating < 2100) category = 'hard';
-      else category = 'expert';
+      const response = await fetch('/api/codeforces/problems');
       
-      stats[category].total++;
-      if (solvedProblems.has(problem.id)) {
-        stats[category].solved++;
+      if (!response.ok) {
+        throw new Error('Failed to fetch problems');
       }
-    });
-    
-    return stats;
+      
+      const data = await response.json();
+      setProblems(data.problems || []);
+      
+      // Extract unique tags
+      const tags = new Set();
+      data.problems.forEach(problem => {
+        problem.tags?.forEach(tag => tags.add(tag));
+      });
+      setAvailableTags(Array.from(tags).sort());
+      
+      // Load solved problems from localStorage
+      const savedSolved = localStorage.getItem('cfSolvedProblems');
+      if (savedSolved) {
+        setSolvedProblems(new Set(JSON.parse(savedSolved)));
+      }
+      
+    } catch (err) {
+      console.error('Error fetching problems:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  const handleSaveHandle = () => {
+    if (cfHandle.trim()) {
+      localStorage.setItem('cfHandle', cfHandle.trim());
+      // Refresh page to get problems for this handle
+      window.location.reload();
+    }
   };
   
-  const diffStats = getDifficultyStats();
+  const handleSolvedToggle = (problemId, isSolved) => {
+    const newSolvedProblems = new Set(solvedProblems);
+    
+    if (isSolved) {
+      newSolvedProblems.add(problemId);
+    } else {
+      newSolvedProblems.delete(problemId);
+    }
+    
+    setSolvedProblems(newSolvedProblems);
+    localStorage.setItem('cfSolvedProblems', JSON.stringify([...newSolvedProblems]));
+  };
+  
+  const handleTagToggle = (tag) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter(t => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+  
+  const handleRatingChange = (min, max) => {
+    setRatingRange([min, max]);
+  };
+  
+  // Filter problems based on selected filters
+  const filteredProblems = problems.filter(problem => {
+    // Filter by rating
+    if (problem.rating && (problem.rating < ratingRange[0] || problem.rating > ratingRange[1])) {
+      return false;
+    }
+    
+    // Filter by tags
+    if (selectedTags.length > 0) {
+      // Check if problem has at least one of the selected tags
+      const hasSelectedTag = selectedTags.some(tag => problem.tags?.includes(tag));
+      if (!hasSelectedTag) {
+        return false;
+      }
+    }
+    
+    // Filter by solved status for the 'solved' and 'unsolved' tabs
+    if (activeTab === 'solved' && !solvedProblems.has(problem.id)) {
+      return false;
+    }
+    
+    if (activeTab === 'unsolved' && solvedProblems.has(problem.id)) {
+      return false;
+    }
+    
+    return true;
+  });
   
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Codeforces Problem Set</h1>
-        <button
-          onClick={() => router.push('/dashboard/codeforces/profile')}
-          className="mt-2 md:mt-0 px-4 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-          Back to Profile
-        </button>
-      </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Navbar />
       
-      {/* Progress Summary */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
-        <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Your Progress</h2>
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
+            Codeforces Problems
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            A curated list of quality problems for practice
+          </p>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {Object.entries(diffStats).map(([category, stat]) => (
-            <div key={category} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
-              <div className="text-sm capitalize text-gray-600 dark:text-gray-300">{category}</div>
-              <div className="flex justify-between items-center mt-1">
-                <div className="text-xl font-bold text-gray-800 dark:text-white">
-                  {stat.solved}/{stat.total}
-                </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {stat.total > 0 ? Math.round((stat.solved / stat.total) * 100) : 0}%
-                </div>
-              </div>
-              <div className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-full mt-2">
-                <div 
-                  className="h-full bg-green-500 rounded-full"
-                  style={{ width: `${stat.total > 0 ? (stat.solved / stat.total) * 100 : 0}%` }}
-                ></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Search */}
-          <div>
-            <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Search Problems
-            </label>
-            <input
-              type="text"
-              id="search"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name or ID"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          
-          {/* Difficulty Filter */}
-          <div>
-            <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Difficulty
-            </label>
-            <select
-              id="difficulty"
-              value={selectedDifficulty}
-              onChange={(e) => setSelectedDifficulty(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="all">All Difficulties</option>
-              <option value="800-1199">Beginner (800-1199)</option>
-              <option value="1200-1499">Easy (1200-1499)</option>
-              <option value="1500-1799">Medium (1500-1799)</option>
-              <option value="1800-2099">Hard (1800-2099)</option>
-              <option value="2100-3500">Expert (2100+)</option>
-            </select>
-          </div>
-          
-          {/* Tag Filter */}
-          <div>
-            <label htmlFor="tag" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Problem Tag
-            </label>
-            <select
-              id="tag"
-              value={selectedTag}
-              onChange={(e) => setSelectedTag(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-            >
-              <option value="all">All Tags</option>
-              {availableTags.map(tag => (
-                <option key={tag} value={tag}>{tag}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-      
-      {/* Problem Cards */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(9)].map((_, i) => (
-            <div key={i} className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded-lg p-6 w-full h-48"></div>
-          ))}
-        </div>
-      ) : error ? (
-        <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-6 rounded-lg">
-          <p>{error}</p>
-        </div>
-      ) : (
-        <>
-          <div className="mb-4 text-gray-600 dark:text-gray-300">
-            Showing {filteredProblems.length} of {problems.length} problems
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProblems.map(problem => (
-              <CodeforcesProblemCard 
-                key={problem.id}
-                problem={problem}
-                onSolvedToggle={handleToggleSolved}
-                solved={solvedProblems.has(problem.id)}
+        {/* Codeforces Handle Input */}
+        <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+          <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex-1">
+              <label htmlFor="cf-handle" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Your Codeforces Handle
+              </label>
+              <input
+                type="text"
+                id="cf-handle"
+                value={cfHandle}
+                onChange={(e) => setCfHandle(e.target.value)}
+                placeholder="Enter your Codeforces handle"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
               />
-            ))}
+            </div>
+            <button
+              onClick={handleSaveHandle}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors"
+            >
+              Save Handle
+            </button>
           </div>
           
-          {filteredProblems.length === 0 && (
-            <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded-lg text-center">
-              <p className="text-gray-600 dark:text-gray-300">No problems match your current filters.</p>
+          {cfHandle && (
+            <div className="mt-4">
+              <a 
+                href={`https://codeforces.com/profile/${cfHandle}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center"
+              >
+                View Codeforces Profile
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
             </div>
           )}
-        </>
-      )}
+        </div>
+        
+        {/* Daily Practice Section */}
+        {cfHandle && (
+          <div className="mb-8">
+            <CodeforcesDailyPractice handle={cfHandle} />
+          </div>
+        )}
+        
+        {/* Problem Filters and List */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Filters */}
+          <div className="lg:col-span-1">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md sticky top-6">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
+                Filters
+              </h2>
+              
+              {/* Tabs */}
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  View
+                </h3>
+                <div className="flex border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
+                  <button
+                    className={`flex-1 py-2 text-sm font-medium ${
+                      activeTab === 'all'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    }`}
+                    onClick={() => setActiveTab('all')}
+                  >
+                    All
+                  </button>
+                  <button
+                    className={`flex-1 py-2 text-sm font-medium ${
+                      activeTab === 'solved'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    }`}
+                    onClick={() => setActiveTab('solved')}
+                  >
+                    Solved
+                  </button>
+                  <button
+                    className={`flex-1 py-2 text-sm font-medium ${
+                      activeTab === 'unsolved'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    }`}
+                    onClick={() => setActiveTab('unsolved')}
+                  >
+                    Unsolved
+                  </button>
+                </div>
+              </div>
+              
+              {/* Rating Range */}
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Difficulty (Rating)
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>{ratingRange[0]}</span>
+                    <span>{ratingRange[1]}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="800"
+                      max="3500"
+                      value={ratingRange[0]}
+                      onChange={(e) => handleRatingChange(parseInt(e.target.value), ratingRange[1])}
+                      className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <input
+                      type="range"
+                      min="800"
+                      max="3500"
+                      value={ratingRange[1]}
+                      onChange={(e) => handleRatingChange(ratingRange[0], parseInt(e.target.value))}
+                      className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Tags */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Tags
+                </h3>
+                <div className="max-h-60 overflow-y-auto pr-2 space-y-1">
+                  {availableTags.map(tag => (
+                    <label key={tag} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedTags.includes(tag)}
+                        onChange={() => handleTagToggle(tag)}
+                        className="form-checkbox h-4 w-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 dark:border-gray-600"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{tag}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Problem List */}
+          <div className="lg:col-span-3">
+            {loading ? (
+              <div className="space-y-6">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="animate-pulse bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
+                    </div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4"></div>
+                    <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-4 rounded-lg">
+                <p>{error}</p>
+              </div>
+            ) : (
+              <div>
+                <div className="mb-4 flex justify-between items-center">
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {filteredProblems.length} problem{filteredProblems.length !== 1 ? 's' : ''} found
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Solved: {[...solvedProblems].filter(id => problems.some(p => p.id === id)).length} / {problems.length}
+                  </p>
+                </div>
+                
+                <div className="space-y-6">
+                  {filteredProblems.map(problem => (
+                    <CodeforcesProblemCard
+                      key={problem.id}
+                      problem={problem}
+                      solved={solvedProblems.has(problem.id)}
+                      onSolvedToggle={handleSolvedToggle}
+                    />
+                  ))}
+                  
+                  {filteredProblems.length === 0 && (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 p-6 rounded-lg">
+                      <p>No problems match your current filters. Try adjusting your filter criteria.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

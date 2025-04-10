@@ -2,145 +2,169 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Navbar from '@/components/Navbar';
 import CodeforcesSummary from '@/components/CodeforcesSummary';
-import CodeforcesRatingChart from '@/components/CodeforcesRatingChart';
 
 export default function CodeforcesProfile() {
-  const [handle, setHandle] = useState('');
-  const [inputHandle, setInputHandle] = useState('');
+  const router = useRouter();
+  const [cfHandle, setCfHandle] = useState('');
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
   
-  // Load saved handle from localStorage on initial load
   useEffect(() => {
-    const savedHandle = localStorage.getItem('codeforcesHandle');
-    if (savedHandle) {
-      setHandle(savedHandle);
-      setInputHandle(savedHandle);
+    // Check if user is authenticated
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+      return;
     }
-  }, []);
+    
+    // Get Codeforces handle from localStorage if available
+    const savedHandle = localStorage.getItem('cfHandle');
+    if (savedHandle) {
+      setCfHandle(savedHandle);
+      fetchProfileData(savedHandle);
+    }
+  }, [router]);
   
-  // Fetch profile data when handle changes
-  useEffect(() => {
-    async function fetchProfileData() {
-      if (!handle) return;
-      
+  async function fetchProfileData(handle) {
+    try {
       setLoading(true);
       setError('');
       
-      try {
-        const response = await fetch(`/api/codeforces/profile?handle=${handle}`);
+      const response = await fetch(`/api/codeforces/profile?handle=${handle}`);
+      
+      if (!response.ok) {
         const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch profile data');
-        }
-        
-        setProfileData(data);
-        // Save handle to localStorage
-        localStorage.setItem('codeforcesHandle', handle);
-      } catch (err) {
-        console.error('Error fetching profile:', err);
-        setError(err.message || 'Something went wrong');
-        setProfileData(null);
-      } finally {
-        setLoading(false);
+        throw new Error(data.error || 'Failed to fetch profile');
       }
+      
+      const data = await response.json();
+      setProfileData(data);
+    } catch (err) {
+      console.error('Error fetching profile data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    
-    fetchProfileData();
-  }, [handle]);
+  }
   
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (inputHandle.trim()) {
-      setHandle(inputHandle.trim());
+  const handleSaveHandle = () => {
+    if (cfHandle.trim()) {
+      localStorage.setItem('cfHandle', cfHandle.trim());
+      fetchProfileData(cfHandle.trim());
     }
   };
   
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Codeforces Profile</h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Navbar />
       
-      {/* Handle Input Form */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
-        <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <label htmlFor="handle" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Codeforces Handle
-            </label>
-            <input
-              type="text"
-              id="handle"
-              value={inputHandle}
-              onChange={(e) => setInputHandle(e.target.value)}
-              placeholder="Enter your Codeforces handle"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <button
-            type="submit"
-            className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 self-end"
-            disabled={loading}
-          >
-            {loading ? 'Loading...' : 'View Profile'}
-          </button>
-        </form>
-      </div>
-      
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-4 rounded-lg mb-6">
-          <p>{error}</p>
-        </div>
-      )}
-      
-      {/* Profile Summary */}
-      {loading ? (
-        <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded-lg p-6 w-full h-64 mb-6"></div>
-      ) : (
-        profileData && (
-          <div className="space-y-6">
-            <CodeforcesSummary userData={profileData} />
-            
-            {profileData.stats?.ratingHistory?.length > 0 && (
-              <CodeforcesRatingChart ratingHistory={profileData.stats.ratingHistory} />
-            )}
-            
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Ready to Practice?</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
-                Check out our curated list of Codeforces problems organized by difficulty level.
-              </p>
-              <button
-                onClick={() => router.push('/dashboard/codeforces/problems')}
-                className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                View Problem Set
-              </button>
-            </div>
-          </div>
-        )
-      )}
-      
-      {/* Prompt when no handle is entered */}
-      {!loading && !profileData && !error && (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md text-center">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Enter Your Codeforces Handle</h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
-            Enter your Codeforces handle above to view your profile statistics and performance analysis.
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
+            Codeforces Profile
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Track your Codeforces performance and stats
           </p>
-          <div className="flex justify-center">
-            <img 
-              src="https://codeforces.org/s/0/android-icon-192x192.png" 
-              alt="Codeforces Logo" 
-              className="w-20 h-20 opacity-50"
-            />
+        </div>
+        
+        <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+          <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex-1">
+              <label htmlFor="cf-handle" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Your Codeforces Handle
+              </label>
+              <input
+                type="text"
+                id="cf-handle"
+                value={cfHandle}
+                onChange={(e) => setCfHandle(e.target.value)}
+                placeholder="Enter your Codeforces handle"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <button
+              onClick={handleSaveHandle}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors"
+            >
+              Load Profile
+            </button>
           </div>
         </div>
-      )}
+        
+        {loading ? (
+          <div className="animate-pulse space-y-8">
+            <div className="h-64 bg-white dark:bg-gray-800 rounded-lg"></div>
+            <div className="h-80 bg-white dark:bg-gray-800 rounded-lg"></div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 p-6 rounded-lg">
+            <h3 className="text-lg font-medium mb-2">Error Loading Profile</h3>
+            <p>{error}</p>
+            <p className="mt-4">
+              Please check that you've entered a valid Codeforces handle and try again.
+              If the problem persists, Codeforces API might be temporarily unavailable.
+            </p>
+          </div>
+        ) : (
+          <CodeforcesSummary userData={profileData} />
+        )}
+        
+        {/* Quick Links */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
+              Daily Practice
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Get personalized daily practice problems based on your rating
+            </p>
+            <button
+              onClick={() => router.push('/dashboard/codeforces/problems')}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded text-center transition-colors"
+            >
+              Go to Practice
+            </button>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
+              Upcoming Contests
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              View upcoming Codeforces contests and register
+            </p>
+            <a 
+              href="https://codeforces.com/contests" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded text-center transition-colors"
+            >
+              View Contests
+            </a>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
+              Problem Sets
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Browse the complete Codeforces problem archive
+            </p>
+            <a 
+              href="https://codeforces.com/problemset" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded text-center transition-colors"
+            >
+              Browse Problems
+            </a>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

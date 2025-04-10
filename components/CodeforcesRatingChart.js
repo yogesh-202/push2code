@@ -6,42 +6,98 @@ export default function CodeforcesRatingChart({ ratingHistory }) {
   const chartInstance = useRef(null);
   
   useEffect(() => {
-    if (!ratingHistory || ratingHistory.length === 0) return;
+    if (!ratingHistory || ratingHistory.length === 0 || !chartRef.current) return;
     
     // Destroy previous chart if it exists
     if (chartInstance.current) {
       chartInstance.current.destroy();
     }
     
+    // Prepare data for the chart
+    const dates = ratingHistory.map(entry => new Date(entry.ratingUpdateTimeSeconds * 1000).toLocaleDateString());
+    const ratings = ratingHistory.map(entry => entry.newRating);
+    const oldRatings = ratingHistory.map(entry => entry.oldRating);
+    const contestNames = ratingHistory.map(entry => entry.contestName);
+    const ranks = ratingHistory.map(entry => entry.rank);
+    
+    // Find minimum and maximum ratings for the y-axis scale
+    const allRatings = [...ratings, ...oldRatings.filter(r => r > 0)];
+    const minRating = Math.min(...allRatings);
+    const maxRating = Math.max(...allRatings);
+    
+    // Add padding to the y-axis
+    const yMin = Math.max(0, minRating - 200);
+    const yMax = maxRating + 200;
+    
+    // Create the chart
     const ctx = chartRef.current.getContext('2d');
     
-    // Prepare data for chart
-    const labels = ratingHistory.map((contest, index) => `Contest ${index + 1}`);
-    const ratings = ratingHistory.map(contest => contest.newRating);
+    // Function to determine color bands based on rating ranges
+    const getRatingColorBands = () => {
+      const colorBands = [];
+      
+      // Define color bands based on Codeforces rating ranges
+      const bands = [
+        { min: 0, max: 1200, color: 'rgba(128, 128, 128, 0.2)' },     // Gray (Newbie)
+        { min: 1200, max: 1400, color: 'rgba(0, 128, 0, 0.2)' },      // Green (Pupil)
+        { min: 1400, max: 1600, color: 'rgba(0, 192, 192, 0.2)' },    // Cyan (Specialist)
+        { min: 1600, max: 1900, color: 'rgba(0, 0, 255, 0.2)' },      // Blue (Expert)
+        { min: 1900, max: 2100, color: 'rgba(170, 0, 170, 0.2)' },    // Purple (Candidate Master)
+        { min: 2100, max: 2400, color: 'rgba(255, 204, 0, 0.2)' },    // Yellow (Master)
+        { min: 2400, max: 3000, color: 'rgba(255, 0, 0, 0.2)' }       // Red (Grandmaster+)
+      ];
+      
+      // Create color bands that fit within our y-axis range
+      bands.forEach(band => {
+        if (band.min <= yMax && band.max >= yMin) {
+          const adjustedMin = Math.max(band.min, yMin);
+          const adjustedMax = Math.min(band.max, yMax);
+          
+          if (adjustedMax > adjustedMin) {
+            colorBands.push({
+              min: adjustedMin,
+              max: adjustedMax,
+              color: band.color
+            });
+          }
+        }
+      });
+      
+      return colorBands;
+    };
     
-    // Get min and max for better y-axis scaling
-    const minRating = Math.min(...ratings) - 100;
-    const maxRating = Math.max(...ratings) + 100;
+    // Get rating color for the line based on current rating
+    const getLineColor = (rating) => {
+      if (rating < 1200) return 'rgb(128, 128, 128)';       // Gray (Newbie)
+      if (rating < 1400) return 'rgb(0, 128, 0)';           // Green (Pupil)
+      if (rating < 1600) return 'rgb(0, 192, 192)';         // Cyan (Specialist)
+      if (rating < 1900) return 'rgb(0, 0, 255)';           // Blue (Expert)
+      if (rating < 2100) return 'rgb(170, 0, 170)';         // Purple (Candidate Master)
+      if (rating < 2400) return 'rgb(255, 204, 0)';         // Yellow (Master)
+      return 'rgb(255, 0, 0)';                             // Red (Grandmaster+)
+    };
     
-    // Create chart
+    const currentRating = ratings[ratings.length - 1];
+    const lineColor = getLineColor(currentRating);
+    
     chartInstance.current = new Chart(ctx, {
       type: 'line',
       data: {
-        labels,
+        labels: dates,
         datasets: [{
           label: 'Rating',
           data: ratings,
-          borderColor: '#6366F1', // Indigo color
-          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          borderColor: lineColor,
+          backgroundColor: 'rgba(0, 123, 255, 0.1)',
           borderWidth: 2,
-          tension: 0.2,
-          fill: true,
-          pointBackgroundColor: ratingHistory.map(contest => {
-            const change = contest.newRating - contest.oldRating;
-            return change > 0 ? '#10B981' : '#EF4444'; // Green if positive, red if negative
+          pointBackgroundColor: ratings.map((rating, i) => {
+            // Red for rating decrease, green for rating increase or no change
+            return rating < oldRatings[i] ? 'rgb(255, 99, 132)' : 'rgb(75, 192, 192)';
           }),
-          pointRadius: 4,
-          pointHoverRadius: 6
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          fill: false,
+          tension: 0.1
         }]
       },
       options: {
@@ -49,17 +105,22 @@ export default function CodeforcesRatingChart({ ratingHistory }) {
         maintainAspectRatio: false,
         plugins: {
           tooltip: {
+            mode: 'index',
+            intersect: false,
             callbacks: {
-              afterLabel: function(context) {
-                const contestIndex = context.dataIndex;
-                const contest = ratingHistory[contestIndex];
-                const change = contest.newRating - contest.oldRating;
-                const changeText = change >= 0 ? `+${change}` : `${change}`;
-                return [
-                  `Contest: ${contest.contestName}`,
-                  `Rank: ${contest.rank}`,
-                  `Change: ${changeText}`
-                ];
+              title: (tooltipItems) => {
+                const index = tooltipItems[0].dataIndex;
+                return contestNames[index];
+              },
+              afterTitle: (tooltipItems) => {
+                const index = tooltipItems[0].dataIndex;
+                return `Rank: ${ranks[index]}`;
+              },
+              label: (context) => {
+                const index = context.dataIndex;
+                const change = ratings[index] - oldRatings[index];
+                const sign = change > 0 ? '+' : '';
+                return `Rating: ${ratings[index]} (${sign}${change})`;
               }
             }
           },
@@ -68,23 +129,60 @@ export default function CodeforcesRatingChart({ ratingHistory }) {
           }
         },
         scales: {
-          y: {
-            min: minRating,
-            max: maxRating,
-            grid: {
-              color: 'rgba(160, 174, 192, 0.1)'
-            }
-          },
           x: {
             grid: {
-              display: false
+              color: 'rgba(200, 200, 200, 0.1)'
+            },
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45
+            }
+          },
+          y: {
+            min: yMin,
+            max: yMax,
+            grid: {
+              color: 'rgba(200, 200, 200, 0.1)'
+            },
+            ticks: {
+              callback: function(value) {
+                return value;
+              }
             }
           }
+        },
+        interaction: {
+          intersect: false,
+          mode: 'index'
         }
-      }
+      },
+      plugins: [{
+        id: 'backgroundColorPlugin',
+        beforeDraw: (chart) => {
+          const ctx = chart.ctx;
+          const chartArea = chart.chartArea;
+          const yAxis = chart.scales.y;
+          
+          // Draw color bands
+          const colorBands = getRatingColorBands();
+          colorBands.forEach(band => {
+            const yTop = yAxis.getPixelForValue(band.max);
+            const yBottom = yAxis.getPixelForValue(band.min);
+            const height = yBottom - yTop;
+            
+            ctx.fillStyle = band.color;
+            ctx.fillRect(
+              chartArea.left,
+              yTop,
+              chartArea.right - chartArea.left,
+              height
+            );
+          });
+        }
+      }]
     });
     
-    // Cleanup function
+    // Cleanup on component unmount
     return () => {
       if (chartInstance.current) {
         chartInstance.current.destroy();
@@ -92,20 +190,9 @@ export default function CodeforcesRatingChart({ ratingHistory }) {
     };
   }, [ratingHistory]);
   
-  if (!ratingHistory || ratingHistory.length === 0) {
-    return (
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-        <p className="text-center text-gray-500 dark:text-gray-400">No rating history available</p>
-      </div>
-    );
-  }
-  
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
-      <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Rating History</h3>
-      <div className="h-64">
-        <canvas ref={chartRef}></canvas>
-      </div>
+    <div className="w-full h-full">
+      <canvas ref={chartRef}></canvas>
     </div>
   );
 }
