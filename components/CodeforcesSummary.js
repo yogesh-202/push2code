@@ -32,17 +32,21 @@ export default function CodeforcesSummary({ userData }) {
         {/* Profile Section */}
         <div className="md:w-1/3 p-6 flex flex-col items-center justify-center border-b md:border-r md:border-b-0 border-gray-200 dark:border-gray-700">
           <div className="w-32 h-32 relative mb-4">
-            {user.titlePhoto ? (
+            {user.titlePhoto && !user.titlePhoto.includes('no-title.jpg') ? (
               <Image 
                 src={user.titlePhoto}
                 alt={user.handle}
                 width={128}
                 height={128}
                 className="rounded-full"
+                onError={() => {
+                  // If image fails to load, it will render the fallback div below
+                  console.log("Failed to load Codeforces profile image");
+                }}
               />
             ) : (
               <div className="w-32 h-32 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                <span className="text-2xl font-bold">{user.handle?.[0]?.toUpperCase()}</span>
+                <span className="text-2xl font-bold">{user.handle?.[0]?.toUpperCase() || "CF"}</span>
               </div>
             )}
           </div>

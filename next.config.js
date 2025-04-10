@@ -2,7 +2,24 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['images.unsplash.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'userpic.codeforces.org',
+      },
+      {
+        protocol: 'https',
+        hostname: 'codeforces.org',
+      },
+      {
+        protocol: 'https',
+        hostname: 'st.codeforces.com',
+      },
+    ],
   },
 }
 
