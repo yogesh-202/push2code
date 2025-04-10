@@ -238,6 +238,49 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Codeforces Section */}
+      <div className="mt-8 mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Competitive Programming</h2>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              Track your Codeforces performance and practice with curated problem sets
+            </p>
+          </div>
+          <div className="mt-4 md:mt-0">
+            <img 
+              src="https://codeforces.org/s/0/android-icon-192x192.png"
+              alt="Codeforces Logo"
+              className="h-10 w-10"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4">
+            <h3 className="font-medium text-indigo-800 dark:text-indigo-300 mb-2">Profile Analysis</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              Track your Codeforces rating history, view submission statistics, and analyze your performance.
+            </p>
+            <Link href="/dashboard/codeforces/profile">
+              <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm">
+                View Profile
+              </button>
+            </Link>
+          </div>
+          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+            <h3 className="font-medium text-green-800 dark:text-green-300 mb-2">Curated Problem Set</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              Practice with our curated list of 100 Codeforces problems organized by difficulty level.
+            </p>
+            <Link href="/dashboard/codeforces/problems">
+              <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm">
+                Practice Problems
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Action Buttons */}
       <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
         <Link href="/dashboard/problems">
