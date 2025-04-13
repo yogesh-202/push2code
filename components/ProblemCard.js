@@ -31,7 +31,7 @@ export default function ProblemCard({ problem, onClick }) {
           Acceptance: {acceptance}
         </span>
         
-        <div className="flex items-center">
+        <div className="flex items-center space-x-2">
           {solved ? (
             <span className="flex items-center text-green-600 dark:text-green-400">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -42,6 +42,23 @@ export default function ProblemCard({ problem, onClick }) {
           ) : (
             <span className="text-gray-500 dark:text-gray-400">Unsolved</span>
           )}
+          
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              fetch('/api/problems/mark-revision', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ problemId: id })
+              });
+            }}
+            className="px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-100"
+          >
+            Revise
+          </button>
         </div>
       </div>
     </div>
