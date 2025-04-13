@@ -25,8 +25,15 @@ export default function CodeforcesProblems() {
       setLoading(true);
       
       try {
-        // Get user rating first
-        const profileResponse = await fetch('/api/codeforces/profile');
+        // Get handle from localStorage
+        const handle = localStorage.getItem('codeforcesHandle');
+        if (!handle) {
+          router.push('/dashboard/codeforces/profile');
+          return;
+        }
+
+        // Get user rating using handle
+        const profileResponse = await fetch(`/api/codeforces/profile?handle=${handle}`);
         const profileData = await profileResponse.json();
         const rating = profileData.user?.rating || 1500;
         setUserRating(rating);
