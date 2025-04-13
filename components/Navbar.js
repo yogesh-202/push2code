@@ -43,6 +43,7 @@ export default function Navbar() {
     ? [
         { name: 'Dashboard', href: '/dashboard' },
         { name: 'Problems', href: '/dashboard/problems' },
+        { name: 'Revision', href: '/dashboard/revision' },
         { name: 'Analytics', href: '/dashboard/analytics' },
         { name: 'Codeforces', href: '/dashboard/codeforces/profile' },
         { name: 'Profile', href: '/dashboard/profile' },
