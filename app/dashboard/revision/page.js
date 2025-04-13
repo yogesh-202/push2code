@@ -41,6 +41,16 @@ export default function RevisionPage() {
     fetchRevisionProblems();
   }, []);
 
+  // Group problems by topic
+  const problemsByTopic = revisionProblems.reduce((acc, problem) => {
+    const topic = problem.topic || 'Other';
+    if (!acc[topic]) {
+      acc[topic] = [];
+    }
+    acc[topic].push(problem);
+    return acc;
+  }, {});
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -71,20 +81,27 @@ export default function RevisionPage() {
         </p>
       </div>
 
-      {revisionProblems.length === 0 ? (
+      {Object.keys(problemsByTopic).length === 0 ? (
         <div className="text-center py-8">
           <p className="text-gray-600 dark:text-gray-400">
             No problems marked for revision yet. Mark problems for revision from the Problems page.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {revisionProblems.map((problem) => (
-            <ProblemCard 
-              key={problem.id} 
-              problem={problem}
-              onClick={() => window.open(problem.link, '_blank')}
-            />
+        <div className="space-y-8">
+          {Object.entries(problemsByTopic).map(([topic, problems]) => (
+            <div key={topic} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">{topic}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {problems.map((problem) => (
+                  <ProblemCard 
+                    key={problem.id} 
+                    problem={problem}
+                    onClick={() => window.open(problem.link, '_blank')}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
