@@ -1,5 +1,7 @@
 {
+  "/api/problems/route": "app/api/problems/route.js",
+  "/api/problems/mark-revision/route": "app/api/problems/mark-revision/route.js",
   "/api/problems/revision/route": "app/api/problems/revision/route.js",
-  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/problems/page": "app/dashboard/problems/page.js",
   "/dashboard/revision/page": "app/dashboard/revision/page.js"
 }
