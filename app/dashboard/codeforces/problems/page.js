@@ -67,7 +67,7 @@ export default function CodeforcesProblems() {
       }
     }
     
-    fetchProblems();
+    fetchUserAndProblems();
   }, []);
   
   // Filter problems when search term, difficulty, or tag changes
