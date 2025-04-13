@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 export default function ProblemCard({ problem, onClick }) {
   if (!problem) return null;
 
