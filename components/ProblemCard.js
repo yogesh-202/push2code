@@ -12,25 +12,26 @@ export default function ProblemCard({ problem, onClick }) {
 
   const [isMarkedForRevision, setIsMarkedForRevision] = useState(problem.markedForRevision || false);
 
-  const handleRevisionToggle = (e) => {
+  const handleRevisionToggle = async (e) => {
     e.stopPropagation();
     const token = localStorage.getItem('token');
-    fetch('/api/problems/mark-revision', {
-      method: 'POST',  
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ problemId: id })
-    })
-    .then(async (response) => {
+    try {
+      const response = await fetch('/api/problems/mark-revision', {
+        method: 'POST',  
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ problemId: id })
+      });
+      
       const data = await response.json();
-      setIsMarkedForRevision(!isMarkedForRevision);
-      problem.markedForRevision = !isMarkedForRevision;
-    })
-    .catch(error => {
+      const newState = !isMarkedForRevision;
+      setIsMarkedForRevision(newState);
+      problem.markedForRevision = newState;
+    } catch (error) {
       console.error("Error toggling revision:", error);
-    });
+    }
   };
 
   return (
