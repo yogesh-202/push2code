@@ -188,13 +188,12 @@ export default function CodeforcesProblems() {
           </div>
         </div>
       )}
-        <button
-          onClick={() => router.push('/dashboard/codeforces/profile')}
-          className="mt-2 md:mt-0 px-4 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-          Back to Profile
-        </button>
-      </div>
+      <button
+        onClick={() => router.push('/dashboard/codeforces/profile')}
+        className="mt-2 md:mt-0 px-4 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+      >
+        Back to Profile
+      </button>
       
       {/* Progress Summary */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
