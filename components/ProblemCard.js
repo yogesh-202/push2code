@@ -8,11 +8,13 @@ export default function ProblemCard({ problem, onClick }) {
   // Map difficulty to color classes
   const difficultyClass = difficulty.toLowerCase();
 
+  const [isMarkedForRevision, setIsMarkedForRevision] = useState(problem.markedForRevision || false);
+
   const handleRevisionToggle = (e) => {
     e.stopPropagation();
     const token = localStorage.getItem('token');
     fetch('/api/problems/mark-revision', {
-      method: 'POST',
+      method: 'POST',  
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
@@ -21,14 +23,11 @@ export default function ProblemCard({ problem, onClick }) {
     })
     .then(async (response) => {
       const data = await response.json();
-      // Update the problem's markedForRevision status.  Error handling should be added here for production
-      problem.markedForRevision = !problem.markedForRevision;
-      // Force a re-render by updating the button's parent
-      e.target.closest('.card').classList.toggle('marked-for-revision');
+      setIsMarkedForRevision(!isMarkedForRevision);
+      problem.markedForRevision = !isMarkedForRevision;
     })
     .catch(error => {
       console.error("Error toggling revision:", error);
-      // Add appropriate error handling, e.g., display an error message to the user.
     });
   };
 
@@ -67,12 +66,12 @@ export default function ProblemCard({ problem, onClick }) {
               <button
                 onClick={handleRevisionToggle}
                 className={`ml-2 px-2 py-1 text-xs rounded transition-colors duration-200 
-                  ${problem.markedForRevision ? 
+                  ${isMarkedForRevision ? 
                     'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-800 dark:text-green-100' : 
                     'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-100'
                   }`}
               >
-                {problem.markedForRevision ? 'Marked' : 'Revise'}
+                {isMarkedForRevision ? 'Marked' : 'Revise'}
               </button>
             </>
           )}
