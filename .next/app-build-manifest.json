@@ -31,10 +31,20 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/codeforces/profile/page.js"
     ],
-    "/dashboard/codeforces/page": [
+    "/dashboard/problems/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/codeforces/page.js"
+      "static/chunks/app/dashboard/problems/page.js"
+    ],
+    "/api/problems/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/problems/route.js"
+    ],
+    "/api/problems/mark-revision/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/problems/mark-revision/route.js"
     ]
   }
 }
