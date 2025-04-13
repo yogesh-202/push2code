@@ -11,9 +11,21 @@ export default function RevisionPage() {
   useEffect(() => {
     const fetchRevisionProblems = async () => {
       try {
-        const response = await fetch('/api/problems/revision');
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Not authenticated');
+        }
+
+        const response = await fetch('/api/problems/revision', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch revision problems');
+        }
         const data = await response.json();
-        setRevisionProblems(data.revisionProblems);
+        setRevisionProblems(data.revisionProblems || []);
       } catch (error) {
         console.error('Error fetching revision problems:', error);
       } finally {
