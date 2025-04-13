@@ -16,14 +16,29 @@ export default function CodeforcesProblems() {
   const [availableTags, setAvailableTags] = useState([]);
   const router = useRouter();
   
-  // Load problems from API
+  const [dailyProblems, setDailyProblems] = useState(null);
+  const [userRating, setUserRating] = useState(1500);
+
+  // Load user rating and problems
   useEffect(() => {
-    async function fetchProblems() {
+    async function fetchUserAndProblems() {
       setLoading(true);
       
       try {
-        const response = await fetch('/api/codeforces/problems');
+        // Get user rating first
+        const profileResponse = await fetch('/api/codeforces/profile');
+        const profileData = await profileResponse.json();
+        const rating = profileData.user?.rating || 1500;
+        setUserRating(rating);
+
+        // Fetch problems with rating filter
+        const response = await fetch(`/api/codeforces/problems?rating=${rating}`);
         const data = await response.json();
+
+        // Fetch daily practice problems
+        const dailyResponse = await fetch(`/api/codeforces/daily-practice?rating=${rating}`);
+        const dailyData = await dailyResponse.json();
+        setDailyProblems(dailyData.dailyProblems);
         
         if (!response.ok) {
           throw new Error(data.error || 'Failed to fetch problems');
@@ -136,6 +151,43 @@ export default function CodeforcesProblems() {
     <div className="container mx-auto p-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Codeforces Problem Set</h1>
+        <div className="text-gray-600 dark:text-gray-300">
+          Your Rating: {userRating}
+        </div>
+      </div>
+
+      {/* Daily Practice Section */}
+      {dailyProblems && (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
+          <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Daily Practice</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {dailyProblems.easier && (
+              <CodeforcesProblemCard 
+                problem={dailyProblems.easier}
+                solved={solvedProblems.has(dailyProblems.easier.id)}
+                onSolvedToggle={handleToggleSolved}
+                label="Warm Up"
+              />
+            )}
+            {dailyProblems.onLevel && (
+              <CodeforcesProblemCard 
+                problem={dailyProblems.onLevel}
+                solved={solvedProblems.has(dailyProblems.onLevel.id)}
+                onSolvedToggle={handleToggleSolved}
+                label="On Your Level"
+              />
+            )}
+            {dailyProblems.harder && (
+              <CodeforcesProblemCard 
+                problem={dailyProblems.harder}
+                solved={solvedProblems.has(dailyProblems.harder.id)}
+                onSolvedToggle={handleToggleSolved}
+                label="Challenge"
+              />
+            )}
+          </div>
+        </div>
+      )}
         <button
           onClick={() => router.push('/dashboard/codeforces/profile')}
           className="mt-2 md:mt-0 px-4 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
