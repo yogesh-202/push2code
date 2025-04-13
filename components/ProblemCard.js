@@ -55,20 +55,12 @@ export default function ProblemCard({ problem, onClick }) {
                 },
                 body: JSON.stringify({ problemId: id })
               })
-              .then(() => {
-                // Toggle the revision state locally
-                const btn = e.target;
-                btn.classList.toggle('bg-yellow-100');
-                btn.classList.toggle('bg-green-100');
-                btn.classList.toggle('text-yellow-800');
-                btn.classList.toggle('text-green-800');
-                btn.classList.toggle('hover:bg-yellow-200');
-                btn.classList.toggle('hover:bg-green-200');
-                btn.classList.toggle('dark:bg-yellow-800');
-                btn.classList.toggle('dark:bg-green-800');
-                btn.classList.toggle('dark:text-yellow-100');
-                btn.classList.toggle('dark:text-green-100');
-                btn.textContent = btn.textContent === 'Revise' ? 'Marked' : 'Revise';
+              .then(async (response) => {
+                const data = await response.json();
+                // Update the problem's markedForRevision status
+                problem.markedForRevision = !problem.markedForRevision;
+                // Force a re-render by updating the button's parent
+                e.target.closest('.card').classList.toggle('marked-for-revision');
               });
             }}
             className={`px-2 py-1 text-xs rounded transition-colors duration-200 

@@ -20,19 +20,34 @@ export async function POST(request) {
     
     const { db } = await connectToDatabase();
     
-    await db.collection('revisionProblems').updateOne(
-      { userId: payload.userId, problemId: new ObjectId(problemId) },
-      { 
-        $set: { 
-          userId: payload.userId,
-          problemId: new ObjectId(problemId),
-          markedAt: new Date()
-        }
-      },
-      { upsert: true }
-    );
+    // Check if problem is already marked for revision
+    const existingMark = await db.collection('revisionProblems').findOne({
+      userId: payload.userId,
+      problemId: new ObjectId(problemId)
+    });
 
-    return NextResponse.json({ message: 'Problem marked for revision' });
+    if (existingMark) {
+      // Remove from revision if already marked
+      await db.collection('revisionProblems').deleteOne({
+        userId: payload.userId,
+        problemId: new ObjectId(problemId)
+      });
+      return NextResponse.json({ 
+        message: 'Problem removed from revision',
+        markedForRevision: false
+      });
+    } else {
+      // Add to revision if not marked
+      await db.collection('revisionProblems').insertOne({
+        userId: payload.userId,
+        problemId: new ObjectId(problemId),
+        markedAt: new Date()
+      });
+      return NextResponse.json({ 
+        message: 'Problem marked for revision',
+        markedForRevision: true
+      });
+    }
   } catch (error) {
     console.error('Error marking problem for revision:', error);
     return NextResponse.json(

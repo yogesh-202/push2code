@@ -249,11 +249,18 @@ export default function Problems() {
               acc[topic].push(problem);
               return acc;
             }, {})
-          ).map(([topic, problems]) => (
-            <div key={topic} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">{topic}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {problems.map((problem) => (
+          ).map(([topic, problems]) => {
+            // Sort problems by difficulty (Easy -> Medium -> Hard)
+            const difficultyOrder = { 'Easy': 1, 'Medium': 2, 'Hard': 3 };
+            const sortedProblems = problems.sort((a, b) => 
+              difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty]
+            );
+            
+            return (
+              <div key={topic} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">{topic}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sortedProblems.map((problem) => (
                   <ProblemCard 
                     key={problem.id} 
                     problem={problem} 
