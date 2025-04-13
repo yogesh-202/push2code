@@ -239,15 +239,29 @@ export default function Problems() {
         </div>
       </div>
       
-      {/* Problems Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Problems By Topic */}
+      <div className="space-y-8">
         {filteredProblems.length > 0 ? (
-          filteredProblems.map((problem) => (
-            <ProblemCard 
-              key={problem.id} 
-              problem={problem} 
-              onClick={() => handleProblemClick(problem)} 
-            />
+          Object.entries(
+            filteredProblems.reduce((acc, problem) => {
+              const topic = problem.topic || 'Other';
+              if (!acc[topic]) acc[topic] = [];
+              acc[topic].push(problem);
+              return acc;
+            }, {})
+          ).map(([topic, problems]) => (
+            <div key={topic} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">{topic}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {problems.map((problem) => (
+                  <ProblemCard 
+                    key={problem.id} 
+                    problem={problem} 
+                    onClick={() => handleProblemClick(problem)} 
+                  />
+                ))}
+              </div>
+            </div>
           ))
         ) : (
           <div className="col-span-3 text-center py-16">
