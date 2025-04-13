@@ -43,26 +43,26 @@ export async function GET(request) {
       };
     }).filter(Boolean); // Remove null entries
     
-    // Get critical topics
-    const response = await fetch(`${request.nextUrl.origin}/api/user/critical-topics`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch critical topics');
-    }
-    
-    const { criticalTopics } = await response.json();
-    
-    // Get revision problems
-    const revisionProblems = getRevisionProblems(
-      problems,
-      formattedSolvedProblems,
-      criticalTopics,
-      5 // Get 5 problems for weekly revision
-    );
+    // Get problems marked for revision
+    const markedForRevision = await db.collection('revisionProblems')
+      .find({ userId: decoded.userId })
+      .toArray();
+
+    // Get all problems marked for revision
+    const revisionProblems = problems
+      .filter(problem => markedForRevision.some(
+        marked => marked.problemId.toString() === problem._id.toString()
+      ))
+      .map(problem => ({
+        id: problem._id.toString(),
+        title: problem.title,
+        difficulty: problem.difficulty,
+        topic: problem.topic,
+        link: problem.link,
+        markedAt: markedForRevision.find(
+          m => m.problemId.toString() === problem._id.toString()
+        )?.markedAt
+      }));
     
     return NextResponse.json({ revisionProblems });
   } catch (error) {

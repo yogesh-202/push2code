@@ -46,18 +46,38 @@ export default function ProblemCard({ problem, onClick }) {
           <button
             onClick={(e) => {
               e.stopPropagation();
+              const token = localStorage.getItem('token');
               fetch('/api/problems/mark-revision', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                  'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ problemId: id })
+              })
+              .then(() => {
+                // Toggle the revision state locally
+                const btn = e.target;
+                btn.classList.toggle('bg-yellow-100');
+                btn.classList.toggle('bg-green-100');
+                btn.classList.toggle('text-yellow-800');
+                btn.classList.toggle('text-green-800');
+                btn.classList.toggle('hover:bg-yellow-200');
+                btn.classList.toggle('hover:bg-green-200');
+                btn.classList.toggle('dark:bg-yellow-800');
+                btn.classList.toggle('dark:bg-green-800');
+                btn.classList.toggle('dark:text-yellow-100');
+                btn.classList.toggle('dark:text-green-100');
+                btn.textContent = btn.textContent === 'Revise' ? 'Marked' : 'Revise';
               });
             }}
-            className="px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-100"
+            className={`px-2 py-1 text-xs rounded transition-colors duration-200 
+              ${problem.markedForRevision ? 
+                'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-800 dark:text-green-100' : 
+                'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-100'
+              }`}
           >
-            Revise
+            {problem.markedForRevision ? 'Marked' : 'Revise'}
           </button>
         </div>
       </div>
