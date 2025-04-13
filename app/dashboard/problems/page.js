@@ -16,7 +16,7 @@ export default function Problems() {
   const [error, setError] = useState(null);
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  
+
   // Filters
   const [filters, setFilters] = useState({
     topic: 'all',
@@ -28,7 +28,7 @@ export default function Problems() {
   useEffect(() => {
     // Check if user is logged in
     const token = localStorage.getItem('token');
-    
+
     if (!token) {
       router.push('/login');
       return;
@@ -50,7 +50,7 @@ export default function Problems() {
         const data = await response.json();
         setProblems(data.problems);
         setFilteredProblems(data.problems);
-        
+
         // Extract unique topics
         const uniqueTopics = [...new Set(data.problems.map(p => p.topic))];
         setTopics(uniqueTopics);
@@ -67,24 +67,24 @@ export default function Problems() {
   // Apply filters
   useEffect(() => {
     let result = [...problems];
-    
+
     // Apply topic filter
     if (filters.topic !== 'all') {
       result = result.filter(p => p.topic === filters.topic);
     }
-    
+
     // Apply difficulty filter
     if (filters.difficulty !== 'all') {
       result = result.filter(p => p.difficulty.toLowerCase() === filters.difficulty.toLowerCase());
     }
-    
+
     // Apply status filter
     if (filters.status === 'solved') {
       result = result.filter(p => p.solved);
     } else if (filters.status === 'unsolved') {
       result = result.filter(p => !p.solved);
     }
-    
+
     // Apply search filter
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
@@ -93,7 +93,7 @@ export default function Problems() {
         p.topic.toLowerCase().includes(searchLower)
       );
     }
-    
+
     setFilteredProblems(result);
   }, [filters, problems]);
 
@@ -107,7 +107,7 @@ export default function Problems() {
   const handleProblemClick = (problem) => {
     // Open the LeetCode problem in a new tab
     window.open(problem.link, '_blank');
-    
+
     // If not already solved, show the mark as solved modal
     if (!problem.solved) {
       setSelectedProblem(problem);
@@ -117,7 +117,7 @@ export default function Problems() {
 
   const handleMarkAsSolved = async (timeSpent, selfRatedDifficulty) => {
     if (!selectedProblem) return;
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/problems/mark-solved', {
@@ -132,11 +132,11 @@ export default function Problems() {
           selfRatedDifficulty
         })
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to mark problem as solved');
       }
-      
+
       // Update the problems list
       setProblems(prev => 
         prev.map(p => 
@@ -145,7 +145,7 @@ export default function Problems() {
             : p
         )
       );
-      
+
       setShowModal(false);
       setSelectedProblem(null);
     } catch (err) {
@@ -193,7 +193,7 @@ export default function Problems() {
           Browse, filter, and track your progress on curated LeetCode problems
         </p>
       </div>
-      
+
       {/* Filters Section */}
       <div className="mb-8 bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="flex flex-col md:flex-row gap-4 md:items-center">
@@ -238,38 +238,41 @@ export default function Problems() {
           </div>
         </div>
       </div>
-      
+
       {/* Problems By Topic */}
       <div className="space-y-8">
         {filteredProblems.length > 0 ? (
-          Object.entries(
-            filteredProblems.reduce((acc, problem) => {
-              const topic = problem.topic || 'Other';
-              if (!acc[topic]) acc[topic] = [];
-              acc[topic].push(problem);
-              return acc;
-            }, {})
-          ).map(([topic, problems]) => {
-            // Sort problems by difficulty (Easy -> Medium -> Hard)
-            const difficultyOrder = { 'Easy': 1, 'Medium': 2, 'Hard': 3 };
-            const sortedProblems = problems.sort((a, b) => 
-              difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty]
-            );
-            
-            return (
-              <div key={topic} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">{topic}</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {sortedProblems.map((problem) => (
-                  <ProblemCard 
-                    key={problem.id} 
-                    problem={problem} 
-                    onClick={() => handleProblemClick(problem)} 
-                  />
-                ))}
-              </div>
-            </div>
-          )
+          <div>
+            {Object.entries(
+              filteredProblems.reduce((acc, problem) => {
+                const topic = problem.topic || 'Other';
+                if (!acc[topic]) acc[topic] = [];
+                acc[topic].push(problem);
+                return acc;
+              }, {})
+            ).map(([topic, problems]) => {
+              // Sort problems by difficulty (Easy -> Medium -> Hard)
+              const difficultyOrder = { 'Easy': 1, 'Medium': 2, 'Hard': 3 };
+              const sortedProblems = problems.sort((a, b) => 
+                difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty]
+              );
+
+              return (
+                <div key={topic} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">{topic}</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {sortedProblems.map((problem) => (
+                    <ProblemCard 
+                      key={problem.id} 
+                      problem={problem} 
+                      onClick={() => handleProblemClick(problem)} 
+                    />
+                  ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         ) : (
           <div className="col-span-3 text-center py-16">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -288,7 +291,7 @@ export default function Problems() {
           </div>
         )}
       </div>
-      
+
       {/* Mark as Solved Modal */}
       {showModal && (
         <SolvedModal
