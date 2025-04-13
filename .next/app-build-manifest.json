@@ -1,20 +1,3 @@
 {
-  "pages": {
-    "/layout": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/app/layout.css",
-      "static/chunks/app/layout.js"
-    ],
-    "/dashboard/revision/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/revision/page.js"
-    ],
-    "/api/problems/revision/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/problems/revision/route.js"
-    ]
-  }
+  "pages": {}
 }
