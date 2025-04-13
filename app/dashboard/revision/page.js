@@ -7,6 +7,7 @@ import ProblemCard from '@/components/ProblemCard';
 export default function RevisionPage() {
   const [revisionProblems, setRevisionProblems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchRevisionProblems = async () => {
@@ -21,13 +22,17 @@ export default function RevisionPage() {
             'Authorization': `Bearer ${token}`
           }
         });
+
         if (!response.ok) {
-          throw new Error('Failed to fetch revision problems');
+          throw new Error(`Failed to fetch revision problems: ${response.statusText}`);
         }
+
         const data = await response.json();
         setRevisionProblems(data.revisionProblems || []);
+        setError(null);
       } catch (error) {
         console.error('Error fetching revision problems:', error);
+        setError(error.message);
       } finally {
         setLoading(false);
       }
@@ -44,6 +49,17 @@ export default function RevisionPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+          <p className="font-bold">Error</p>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -55,15 +71,23 @@ export default function RevisionPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {revisionProblems.map((problem) => (
-          <ProblemCard 
-            key={problem.id} 
-            problem={problem}
-            onClick={() => window.open(problem.link, '_blank')}
-          />
-        ))}
-      </div>
+      {revisionProblems.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-600 dark:text-gray-400">
+            No problems marked for revision yet. Mark problems for revision from the Problems page.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {revisionProblems.map((problem) => (
+            <ProblemCard 
+              key={problem.id} 
+              problem={problem}
+              onClick={() => window.open(problem.link, '_blank')}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
