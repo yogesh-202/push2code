@@ -1,5 +1,3 @@
 {
-  "/api/problems/route": "app/api/problems/route.js",
-  "/_not-found/page": "app/_not-found/page.js",
   "/dashboard/problems/page": "app/dashboard/problems/page.js"
 }
