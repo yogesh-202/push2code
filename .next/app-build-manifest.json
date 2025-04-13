@@ -1,9 +1,9 @@
 {
   "pages": {
-    "/api/problems/mark-revision/route": [
+    "/api/problems/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/problems/mark-revision/route.js"
+      "static/chunks/app/api/problems/route.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -16,25 +16,10 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/problems/page.js"
     ],
-    "/api/problems/route": [
+    "/_not-found/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/problems/route.js"
-    ],
-    "/dashboard/revision/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/revision/page.js"
-    ],
-    "/api/problems/revision/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/problems/revision/route.js"
-    ],
-    "/api/problems/mark-solved/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/problems/mark-solved/route.js"
+      "static/chunks/app/_not-found/page.js"
     ]
   }
 }
