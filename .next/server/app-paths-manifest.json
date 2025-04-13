@@ -1,10 +1,8 @@
 {
-  "/api/codeforces/profile/route": "app/api/codeforces/profile/route.js",
-  "/api/codeforces/problems/route": "app/api/codeforces/problems/route.js",
-  "/api/problems/route": "app/api/problems/route.js",
   "/api/problems/mark-revision/route": "app/api/problems/mark-revision/route.js",
-  "/api/codeforces/daily-practice/route": "app/api/codeforces/daily-practice/route.js",
-  "/dashboard/codeforces/profile/page": "app/dashboard/codeforces/profile/page.js",
-  "/dashboard/codeforces/problems/page": "app/dashboard/codeforces/problems/page.js",
-  "/dashboard/problems/page": "app/dashboard/problems/page.js"
+  "/api/problems/route": "app/api/problems/route.js",
+  "/api/problems/revision/route": "app/api/problems/revision/route.js",
+  "/api/problems/mark-solved/route": "app/api/problems/mark-solved/route.js",
+  "/dashboard/problems/page": "app/dashboard/problems/page.js",
+  "/dashboard/revision/page": "app/dashboard/revision/page.js"
 }
