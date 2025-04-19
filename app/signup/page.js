@@ -1,9 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+
+
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -16,16 +19,31 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleChange = (e) => {
+
+/*
+When you call setFormData((prev) => {...}), React automatically provides the current state (formData) as prev.
+Example:
+Initial State: formData = { username: '', email: '' }
+User Input: Changes username to 'John'
+Function Call: setFormData((prev) => ({ ...prev, [name]: value }))
+prev Value: { username: '', email: '' }
+Updated State: { username: 'John', email: '' }
+React handles prev internally, ensuring you work with the latest state*/
+
+//
+
+  const handleChange = (e) => {    
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
-
+  
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault();  //it prevents the browser from reloading the page, allowing you to handle the form 
+    // submission with JavaScript instead. This is essential for single-page applications where you want
+    //  to manage form submissions asynchronously without a full page refresh.
     
     // Basic validation
     if (!formData.username || !formData.email || !formData.password) {
@@ -47,18 +65,25 @@ export default function SignUp() {
       setLoading(true);
       setError('');
       
+      // Send a POST request to the signup API endpoint
       const response = await fetch('/api/auth/signup', {
+        // Specify the HTTP method as POST for creating a new resource
         method: 'POST',
+        // Set the request headers to indicate the content type as JSON
         headers: {
           'Content-Type': 'application/json',
         },
+        // Convert the formData object to a JSON string to send in the request body
         body: JSON.stringify({
+          // Include the username from formData in the request payload
           username: formData.username,
+          // Include the email from formData in the request payload
           email: formData.email,
+          // Include the password from formData in the request payload
           password: formData.password,
         }),
       });
-      
+
       const data = await response.json();
       
       if (!response.ok) {
@@ -186,7 +211,10 @@ export default function SignUp() {
               <button
                 type="submit"
                 className="w-full btn-primary py-3"
-                disabled={loading}
+                // The 'disabled' attribute is set to the value of 'loading'.
+                // When 'loading' is true, the button is disabled, preventing user interaction.
+                // This is typically used to prevent multiple submissions while a request is being processed.
+                disabled={loading} 
               >
                 {loading ? 'Creating Account...' : 'Sign Up'}
               </button>

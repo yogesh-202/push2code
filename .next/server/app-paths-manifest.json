@@ -1,11 +1,10 @@
 {
-  "/api/problems/route": "app/api/problems/route.js",
-  "/api/codeforces/profile/route": "app/api/codeforces/profile/route.js",
-  "/api/codeforces/problems/route": "app/api/codeforces/problems/route.js",
-  "/api/codeforces/daily-practice/route": "app/api/codeforces/daily-practice/route.js",
-  "/api/problems/revision/route": "app/api/problems/revision/route.js",
-  "/dashboard/problems/page": "app/dashboard/problems/page.js",
-  "/dashboard/codeforces/profile/page": "app/dashboard/codeforces/profile/page.js",
-  "/dashboard/codeforces/problems/page": "app/dashboard/codeforces/problems/page.js",
-  "/dashboard/revision/page": "app/dashboard/revision/page.js"
+  "/api/analytics/route": "app/api/analytics/route.js",
+  "/api/user/route": "app/api/user/route.js",
+  "/api/daily-goals/route": "app/api/daily-goals/route.js",
+  "/api/backlogs/route": "app/api/backlogs/route.js",
+  "/dashboard/revision/page": "app/dashboard/revision/page.js",
+  "/dashboard/web-dev/page": "app/dashboard/web-dev/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/core-subjects/page": "app/dashboard/core-subjects/page.js"
 }

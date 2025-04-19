@@ -1,7 +1,7 @@
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
-import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
+import { NextResponse } from 'next/server';
 
 export async function POST(request) {
   try {
@@ -16,24 +16,29 @@ export async function POST(request) {
       );
     }
 
-    // Get request body
     const { problemId, timeSpent, selfRatedDifficulty } = await request.json();
-    
-    if (!problemId || !timeSpent || !selfRatedDifficulty) {
+
+    if (!problemId || timeSpent === undefined || selfRatedDifficulty === undefined) {
       return NextResponse.json(
         { message: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Connect to the database
     const { db } = await connectToDatabase();
+    const solvedAt = new Date();
+    const today = new Date().toISOString().split('T')[0];
 
     // Check if problem exists
-    const problem = await db.collection('problems').findOne({
-      _id: new ObjectId(problemId),
-    });
-    
+    let query = {};
+    try {
+      query = { _id: new ObjectId(problemId) };
+    } catch (e) {
+      // If problemId is not a valid ObjectId, try using it as a regular id
+      query = { id: problemId };
+    }
+
+    const problem = await db.collection('problems').findOne(query);
     if (!problem) {
       return NextResponse.json(
         { message: 'Problem not found' },
@@ -42,76 +47,60 @@ export async function POST(request) {
     }
 
     // Check if already solved
-    const existingSolved = await db.collection('solvedProblems').findOne({
-      userId: payload.userId,
-      problemId: new ObjectId(problemId),
+    const existingSolution = await db.collection('solvedProblems').findOne({
+      userId: new ObjectId(payload.userId.toString()),
+      problemId: problem._id
     });
-    
-    if (existingSolved) {
+
+    if (existingSolution) {
       return NextResponse.json(
-        { message: 'Problem already marked as solved' },
-        { status: 409 }
+        { message: 'Problem already solved' },
+        { status: 400 }
       );
     }
 
-    // Mark problem as solved
-    const now = new Date();
-    const solvedProblem = {
-      userId: payload.userId,
-      problemId: new ObjectId(problemId),
+    // Add to solved problems
+    await db.collection('solvedProblems').insertOne({
+      userId: new ObjectId(payload.userId.toString()),
+      problemId: problem._id,
+      solvedAt,
       timeSpent: parseInt(timeSpent),
-      selfRatedDifficulty,
-      solvedAt: now,
-    };
-    
-    await db.collection('solvedProblems').insertOne(solvedProblem);
+      selfRatedDifficulty: parseInt(selfRatedDifficulty)
+    });
+
+    // Remove from daily goals if it exists there
+    await db.collection('dailyGoals').deleteOne({
+      userId: new ObjectId(payload.userId.toString()),
+      problemId: problem._id,
+      date: today
+    });
 
     // Update user stats
-    const updateResult = await db.collection('users').updateOne(
-      { _id: new ObjectId(payload.userId) },
-      { 
-        $inc: { 'stats.totalSolved': 1, 'stats.timeSpent': parseInt(timeSpent) },
-        $set: { 'stats.lastActive': now }
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(payload.userId.toString()) },
+      {
+        $inc: { 
+          totalSolved: 1,
+          'stats.timeSpent': parseInt(timeSpent)
+        },
+        $set: { 
+          lastActive: solvedAt,
+          'stats.lastSolvedAt': solvedAt
+        }
       }
     );
-    
-    // Update streak
-    const user = await db.collection('users').findOne({ _id: new ObjectId(payload.userId) });
-    const lastActive = user.stats.lastActive;
-    const currentStreak = user.stats.streak || 0;
-    
-    // Calculate days between last active and now
-    const lastActiveDate = new Date(lastActive);
-    const dayDiff = Math.floor((now - lastActiveDate) / (1000 * 60 * 60 * 24));
-    
-    let newStreak = currentStreak;
-    if (dayDiff === 0) {
-      // Same day, no streak change
-    } else if (dayDiff === 1) {
-      // Next day, increment streak
-      newStreak += 1;
-      await db.collection('users').updateOne(
-        { _id: new ObjectId(payload.userId) },
-        { $set: { 'stats.streak': newStreak } }
-      );
-    } else {
-      // More than one day, reset streak
-      newStreak = 1;
-      await db.collection('users').updateOne(
-        { _id: new ObjectId(payload.userId) },
-        { $set: { 'stats.streak': newStreak } }
-      );
-    }
 
     return NextResponse.json({
       message: 'Problem marked as solved',
-      solvedAt: now,
-      streak: newStreak,
+      solvedAt,
+      problemId: problem._id,
+      solved: true
     });
+
   } catch (error) {
     console.error('Error marking problem as solved:', error);
     return NextResponse.json(
-      { message: 'Error marking problem as solved' },
+      { message: 'Internal server error', error: error.message },
       { status: 500 }
     );
   }

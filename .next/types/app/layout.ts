@@ -1,4 +1,4 @@
-// File: /home/runner/workspace/app/layout.js
+// File: C:\Users\91626\Downloads\CodingCrafter (1)1\CodingCrafter\app\layout.js
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

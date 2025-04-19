@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
@@ -19,6 +18,17 @@ export async function POST(request) {
     const { problemId } = await request.json();
     
     const { db } = await connectToDatabase();
+    
+    // Check if problem exists in either problems or sqlProblems collection
+    const problem = await db.collection('problems').findOne({ _id: new ObjectId(problemId) }) ||
+                   await db.collection('sqlProblems').findOne({ _id: new ObjectId(problemId) });
+    
+    if (!problem) {
+      return NextResponse.json(
+        { message: 'Problem not found' },
+        { status: 404 }
+      );
+    }
     
     // Check if problem is already marked for revision
     const existingMark = await db.collection('revisionProblems').findOne({

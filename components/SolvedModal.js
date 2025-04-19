@@ -26,7 +26,19 @@ export default function SolvedModal({ problem, onClose, onSubmit }) {
       return;
     }
     
-    onSubmit(parseInt(timeSpent), selfRatedDifficulty);
+    // Convert difficulty to numeric value
+    const difficultyValue = {
+      'Easy': 1,
+      'Medium': 3,
+      'Hard': 5
+    }[selfRatedDifficulty];
+
+    if (!difficultyValue) {
+      setErrors({ selfRatedDifficulty: 'Please select a valid difficulty' });
+      return;
+    }
+    
+    onSubmit(parseInt(timeSpent), difficultyValue);
   };
 
   return (

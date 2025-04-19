@@ -44,7 +44,8 @@ export default function Navbar() {
         { name: 'Dashboard', href: '/dashboard' },
         { name: 'Problems', href: '/dashboard/problems' },
         { name: 'Revision', href: '/dashboard/revision' },
-        { name: 'Analytics', href: '/dashboard/analytics' },
+        { name: 'Core Subjects', href: '/dashboard/core-subjects' },
+        { name: 'Web Dev', href: '/dashboard/web-dev' },
         { name: 'Codeforces', href: '/dashboard/codeforces/profile' },
         { name: 'Profile', href: '/dashboard/profile' },
       ]
@@ -61,7 +62,7 @@ export default function Navbar() {
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link href={isLoggedIn ? '/dashboard' : '/'} className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-                DSA Practice
+                Push2Code
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">

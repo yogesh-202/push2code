@@ -23,10 +23,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-24 md:py-32 flex flex-col md:flex-row items-center">
           <div className="md:w-1/2 mb-12 md:mb-0">
             <h1 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
-              Master Data Structures & Algorithms
+              Level Up Your Coding Journey
             </h1>
             <p className="text-xl mb-8 text-indigo-100">
-              Track your progress, identify your weaknesses, and improve your problem-solving skills with our personalized DSA practice platform.
+              Track your progress, identify your weaknesses, and improve your problem-solving skills with our personalized coding practice platform.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link href="/signup">
@@ -104,7 +104,7 @@ export default function Home() {
       <section className="py-16 bg-white dark:bg-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-900 dark:text-white">
-            Your Personal DSA Dashboard
+            Your Personal Coding Dashboard
           </h2>
           <div className="relative h-96 md:h-[500px] rounded-lg overflow-hidden shadow-xl" style={{ position: 'relative' }}>
             <Image
@@ -150,9 +150,9 @@ export default function Home() {
       {/* CTA Section */}
       <section className="py-16 bg-indigo-600 text-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl font-bold mb-6">Ready to Improve Your DSA Skills?</h2>
+          <h2 className="text-3xl font-bold mb-6">Ready to Improve Your Coding Skills?</h2>
           <p className="text-xl mb-8 text-indigo-100">
-            Join our platform today and take your coding interview preparation to the next level.
+            Join Push2Code today and take your coding practice to the next level.
           </p>
           <Link href="/signup">
             <button className="bg-white text-indigo-700 hover:bg-indigo-50 px-8 py-4 rounded-md font-semibold text-lg">

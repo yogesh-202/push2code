@@ -6,6 +6,54 @@ import { parseCsv } from '@/utils/csvParser';
 import path from 'path';
 import fs from 'fs';
 
+async function checkSundayLock(userId, db) {
+  const today = new Date();
+  const isSunday = today.getDay() === 0; // 0 is Sunday
+  
+  if (!isSunday) {
+    return { isLocked: false };
+  }
+
+  // Get all revision problems
+  const revisionProblems = await db.collection('revisionProblems')
+    .find({ userId: new ObjectId(userId) })
+    .toArray();
+
+  // Get all backlog problems
+  const backlogProblems = await db.collection('backlogs')
+    .find({ userId: new ObjectId(userId) })
+    .toArray();
+
+  // Get all solved problems
+  const solvedProblems = await db.collection('solvedProblems')
+    .find({ userId: new ObjectId(userId) })
+    .toArray();
+
+  const solvedProblemIds = new Set(solvedProblems.map(sp => sp.problemId.toString()));
+
+  // Check if all revision problems are solved
+  const allRevisionSolved = revisionProblems.every(rp => 
+    solvedProblemIds.has(rp.problemId.toString())
+  );
+
+  // Check if all backlog problems are solved
+  const allBacklogSolved = backlogProblems.every(bp => 
+    solvedProblemIds.has(bp.problemId.toString())
+  );
+
+  return {
+    isLocked: !(allRevisionSolved && allBacklogSolved),
+    revisionCount: revisionProblems.length,
+    backlogCount: backlogProblems.length,
+    solvedRevisionCount: revisionProblems.filter(rp => 
+      solvedProblemIds.has(rp.problemId.toString())
+    ).length,
+    solvedBacklogCount: backlogProblems.filter(bp => 
+      solvedProblemIds.has(bp.problemId.toString())
+    ).length
+  };
+}
+
 export async function GET(request) {
   try {
     // Verify token
@@ -21,6 +69,9 @@ export async function GET(request) {
 
     // Connect to the database
     const { db } = await connectToDatabase();
+
+    // Check Sunday lock
+    const lockStatus = await checkSundayLock(payload.userId, db);
 
     // Get problems from database
     let problems = await db.collection('problems').find().toArray();
@@ -50,7 +101,7 @@ export async function GET(request) {
 
     // Get user's solved problems
     const userSolved = await db.collection('solvedProblems').find({
-      userId: payload.userId
+      userId: new ObjectId(payload.userId.toString())
     }).toArray();
     
     // Map solved problems to problem IDs
@@ -65,6 +116,7 @@ export async function GET(request) {
       const solvedInfo = userSolved.find(s => s.problemId.toString() === problemId);
       
       return {
+        _id: problemId,
         id: problemId,
         title: problem.title,
         difficulty: problem.difficulty,
@@ -76,10 +128,14 @@ export async function GET(request) {
         solvedAt: solvedInfo?.solvedAt || null,
         timeSpent: solvedInfo?.timeSpent || null,
         selfRatedDifficulty: solvedInfo?.selfRatedDifficulty || null,
+        isLocked: lockStatus.isLocked
       };
     });
     
-    return NextResponse.json({ problems: problemsWithSolvedStatus });
+    return NextResponse.json({ 
+      problems: problemsWithSolvedStatus,
+      lockStatus 
+    });
   } catch (error) {
     console.error('Error fetching problems:', error);
     return NextResponse.json(

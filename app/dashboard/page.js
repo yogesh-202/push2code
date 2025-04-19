@@ -1,90 +1,251 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
-import ProgressChart from '@/components/ProgressChart';
+import { useRouter } from 'next/navigation';
+import ProblemCard from '@/components/ProblemCard';
 import ProgressBar from '@/components/ProgressBar';
+import DailyGoals from '@/components/DailyGoals';
+import ProgressChart from '@/components/ProgressChart';
+import RadarChart from '@/components/RadarChart';
+import HeatMap from '@/components/HeatMap';
+import StatsCard from '@/components/StatsCard';
+import { FireIcon } from '@heroicons/react/24/outline';
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
-    totalSolved: 0,
-    easyCount: 0,
-    mediumCount: 0,
-    hardCount: 0,
-    timeSpent: 0,
-    topicProgress: [],
-    recentlySolved: []
+    overview: {
+      totalProblems: 0,
+      solvedProblems: 0,
+      averageTime: 0,
+      streak: 0,
+      accuracy: 0
+    },
+    performance: {
+      daily: [],
+      weekly: [],
+      monthly: []
+    },
+    topics: {
+      distribution: [],
+      performance: [],
+      weaknesses: []
+    },
+    difficulty: {
+      easy: { total: 0, solved: 0 },
+      medium: { total: 0, solved: 0 },
+      hard: { total: 0, solved: 0 }
+    },
+    timeAnalysis: {
+      averageByDifficulty: {},
+      bestTime: { problem: '', time: 0 },
+      worstTime: { problem: '', time: 0 }
+    }
   });
-  const [criticalTopics, setCriticalTopics] = useState([]);
+  const [dailyGoals, setDailyGoals] = useState([]);
+  const [backlogs, setBacklogs] = useState([]);
+  const [showBacklogs, setShowBacklogs] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [analytics, setAnalytics] = useState({
+    overview: {
+      totalProblems: 0,
+      solvedProblems: 0,
+      averageTime: 0,
+      streak: 0,
+      accuracy: 0
+    },
+    performance: {
+      daily: [],
+      weekly: [],
+      monthly: []
+    },
+    topics: {
+      distribution: [],
+      performance: [],
+      weaknesses: []
+    },
+    difficulty: {
+      easy: { total: 0, solved: 0 },
+      medium: { total: 0, solved: 0 },
+      hard: { total: 0, solved: 0 }
+    },
+    timeAnalysis: {
+      averageByDifficulty: {},
+      bestTime: { problem: '', time: 0 },
+      worstTime: { problem: '', time: 0 }
+    },
+    recommendations: []
+  });
+
+  const fetchAnalytics = async (token) => {
+    try {
+      if (!token) {
+        console.log('No token found, skipping analytics fetch');
+        return;
+      }
+
+      const response = await fetch('/api/analytics', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Analytics fetch failed:', response.status);
+        // Don't set error state for background refreshes
+        if (!isLoading) {
+          setError('Unable to refresh analytics data');
+        }
+        return;
+      }
+
+      const data = await response.json();
+      setAnalytics(data);
+      // Clear any existing error when fetch succeeds
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+      // Don't set error state for background refreshes
+      if (!isLoading) {
+        setError('Unable to refresh analytics data');
+      }
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      // Fetch user data
+      const userResponse = await fetch('/api/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+      
+      const userData = await userResponse.json();
+      setUser(userData);
+      
+      // Fetch analytics
+      await fetchAnalytics(token);
+
+      // Fetch daily goals
+      const goalsResponse = await fetch('/api/daily-goals', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!goalsResponse.ok) {
+        throw new Error('Failed to fetch daily goals');
+      }
+      
+      const goalsData = await goalsResponse.json();
+      setDailyGoals(goalsData.dailyGoals || []);
+      
+      // Fetch backlogs
+      const backlogsResponse = await fetch('/api/backlogs', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!backlogsResponse.ok) {
+        throw new Error('Failed to fetch backlogs');
+      }
+      
+      const backlogsData = await backlogsResponse.json();
+      setBacklogs(backlogsData);
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setError(error.message);
+    }
+  };
 
   useEffect(() => {
-    // Check if user is logged in
     const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    if (!token || !userData) {
+    if (!token) {
       router.push('/login');
       return;
     }
 
-    setUser(JSON.parse(userData));
-
-    // Fetch user stats
-    const fetchStats = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const response = await fetch('/api/user/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch user statistics');
-        }
-
-        const data = await response.json();
-        setStats(data);
+        await Promise.all([
+          fetchAnalytics(token),
+          fetchDashboardData()
+        ]);
       } catch (err) {
-        setError(err.message);
-      }
-    };
-
-    // Fetch critical topics
-    const fetchCriticalTopics = async () => {
-      try {
-        const response = await fetch('/api/user/critical-topics', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch critical topics');
-        }
-
-        const data = await response.json();
-        setCriticalTopics(data.criticalTopics);
-      } catch (err) {
-        console.error(err);
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStats();
-    fetchCriticalTopics();
-  }, [router]);
+    fetchData();
+
+    // Set up auto-refresh for analytics every minute
+    const intervalId = setInterval(() => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken) {
+        fetchAnalytics(currentToken).catch(err => {
+          console.error('Background refresh failed:', err);
+          // Don't update UI for background refresh errors
+        });
+      }
+    }, 60000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Event listener for problem solved
+  useEffect(() => {
+    const handleProblemSolved = () => {
+      fetchAnalytics(localStorage.getItem('token'));
+    };
+
+    window.addEventListener('problemSolved', handleProblemSolved);
+    return () => window.removeEventListener('problemSolved', handleProblemSolved);
+  }, []);
+
+  const handleProblemClick = (problem) => {
+    window.open(problem.url || problem.link, '_blank');
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-8">
+          <p>{error}</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="btn-primary"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
@@ -100,206 +261,207 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="dashboard-card">
-          <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-1">Problems Solved</h3>
-          <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{stats.totalSolved}</p>
-        </div>
-        <div className="dashboard-card">
-          <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-1">Total Time Spent</h3>
-          <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-            {Math.floor(stats.timeSpent / 60)} hrs {stats.timeSpent % 60} mins
-          </p>
-        </div>
-        <div className="dashboard-card">
-          <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-1">Difficulty Distribution</h3>
-          <div className="flex gap-2 mt-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-difficulty-easy">
-              Easy: {stats.easyCount}
+      {/* Stats Overview */}
+      <div className="stats-section">
+        {error ? (
+          <div className="error-message">
+            {error}
+            <button onClick={fetchAnalytics}>Retry</button>
+          </div>
+        ) : loading ? (
+          <div className="loading">Loading stats...</div>
+        ) : (
+          <>
+            <div className="stats-overview grid grid-cols-1 md:grid-cols-4 gap-4 mb-12">
+              <StatsCard
+                title="Total Solved"
+                value={analytics.overview.solvedProblems}
+                total={analytics.overview.totalProblems}
+              />
+              <StatsCard
+                title="Current Streak"
+                value={`${analytics.overview.streak} days`}
+                icon={<FireIcon className="h-6 w-6" />}
+              />
+              <StatsCard
+                title="Average Time"
+                value={`${Math.round(analytics.overview.averageTime)} min`}
+              />
+              <StatsCard
+                title="Accuracy"
+                value={`${analytics.overview.accuracy}%`}
+              />
+            </div>
+
+
+{/* Daily Goals Section */}
+      <DailyGoals goals={dailyGoals} onProblemClick={handleProblemClick} />
+
+      {/* Backlogs Section */}
+      <div className="mb-8">
+        <button
+          onClick={() => setShowBacklogs(!showBacklogs)}
+          className="w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+        >
+          <div className="flex items-center space-x-2">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Backlogs</h2>
+            <span className="px-2.5 py-0.5 text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-full">
+              {backlogs.length}
             </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-difficulty-medium">
-              Medium: {stats.mediumCount}
-            </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-difficulty-hard">
-              Hard: {stats.hardCount}
-            </span>
           </div>
-        </div>
-        <div className="dashboard-card">
-          <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-1">Consistency</h3>
-          <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-            {stats.streak || 0} days
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Current streak</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        {/* Progress By Topic */}
-        <div className="dashboard-card lg:col-span-2">
-          <h2 className="section-title">Progress by Topic</h2>
-          <div className="space-y-4">
-            {stats.topicProgress && stats.topicProgress.map((topic) => (
-              <div key={topic.name}>
-                <div className="flex justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{topic.name}</span>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {topic.solved}/{topic.total} ({Math.round((topic.solved / topic.total) * 100)}%)
-                  </span>
-                </div>
-                <ProgressBar 
-                  percentage={(topic.solved / topic.total) * 100} 
-                  color={
-                    topic.solved / topic.total < 0.3 ? 'red' : 
-                    topic.solved / topic.total < 0.7 ? 'yellow' : 'green'
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Critical Topics */}
-        <div className="dashboard-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="section-title mb-0">Critical Topics</h2>
-            <Link href="/dashboard/analytics" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
-              View detailed analysis →
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {criticalTopics.length > 0 ? (
-              criticalTopics.map((topic, index) => (
-                <div key={index} className="flex items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                  <div className="flex-shrink-0 text-red-500 dark:text-red-400 mr-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{topic.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {topic.reason}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Not enough data to determine critical topics yet. Keep solving problems!
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Overall Progress Chart */}
-        <div className="dashboard-card lg:col-span-2">
-          <h2 className="section-title">Overall Progress</h2>
-          <div className="h-64">
-            <ProgressChart />
-          </div>
-        </div>
-
-        {/* Recently Solved */}
-        <div className="dashboard-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="section-title mb-0">Recently Solved</h2>
-            <Link href="/dashboard/problems" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
-              View all problems →
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {stats.recentlySolved && stats.recentlySolved.length > 0 ? (
-              stats.recentlySolved.map((problem) => (
-                <div key={problem.id} className="flex items-center p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                  <div className={`flex-shrink-0 mr-3 w-2 h-2 rounded-full bg-difficulty-${problem.difficulty.toLowerCase()}`}></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {problem.title}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {problem.topic} • {new Date(problem.solvedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {problem.timeSpent} mins
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                You haven't solved any problems yet. Start practicing!
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Codeforces Section */}
-      <div className="mt-8 mb-8 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Competitive Programming</h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Track your Codeforces performance and practice with curated problem sets
-            </p>
-          </div>
-          <div className="mt-4 md:mt-0">
-            <img 
-              src="https://codeforces.org/s/0/android-icon-192x192.png"
-              alt="Codeforces Logo"
-              className="h-10 w-10"
+          <svg
+            className={`w-6 h-6 transform transition-transform duration-200 ${
+              showBacklogs ? 'rotate-180' : ''
+            }`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
             />
+          </svg>
+        </button>
+        
+        {showBacklogs && (
+          <div className="mt-4">
+            {backlogs.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {backlogs.map((backlog) => (
+                  <ProblemCard
+                    key={backlog.id}
+                    problem={{
+                      ...backlog,
+                      url: backlog.url || backlog.link,
+                      isBacklog: true,
+                      originalDate: new Date(backlog.originalDate).toLocaleDateString()
+                    }}
+                    onClick={() => handleProblemClick(backlog)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600 dark:text-gray-400 p-4 bg-white dark:bg-gray-800 rounded-lg">
+                No backlogs yet. Keep up the good work!
+              </p>
+            )}
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4">
-            <h3 className="font-medium text-indigo-800 dark:text-indigo-300 mb-2">Profile Analysis</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Track your Codeforces rating history, view submission statistics, and analyze your performance.
-            </p>
-            <Link href="/dashboard/codeforces/profile">
-              <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm">
-                View Profile
-              </button>
-            </Link>
-          </div>
-          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-            <h3 className="font-medium text-green-800 dark:text-green-300 mb-2">Curated Problem Set</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Practice with our curated list of 100 Codeforces problems organized by difficulty level.
-            </p>
-            <Link href="/dashboard/codeforces/problems">
-              <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm">
-                Practice Problems
-              </button>
-            </Link>
-          </div>
-        </div>
+        )}
+      </div>
+          
+
+            {/* Difficulty Distribution */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8 mt-8">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 lg:col-span-2">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Difficulty Distribution</h2>
+                <div className="space-y-6">
+                  {Object.entries(analytics.difficulty).map(([level, stats]) => (
+                    <div key={level}>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
+                          {level}
+                        </span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {stats.solved}/{stats.total}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                        <div
+                          className={`h-2.5 rounded-full ${
+                            level === 'easy' ? 'bg-green-500' :
+                            level === 'medium' ? 'bg-yellow-500' :
+                            'bg-red-500'
+                          }`}
+                          style={{ width: `${(stats.solved / stats.total) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Time Analysis</h2>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Average Time per Problem</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {Math.round(analytics.overview.averageTime)} mins
+                    </p>
+                  </div>
+                  {analytics.timeAnalysis && (
+                    <>
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Best Time</p>
+                        <p className="text-base text-gray-900 dark:text-white">
+                          {analytics.timeAnalysis.bestTime.problem} ({Math.round(analytics.timeAnalysis.bestTime.time)} mins)
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Worst Time</p>
+                        <p className="text-base text-gray-900 dark:text-white">
+                          {analytics.timeAnalysis.worstTime.problem} ({Math.round(analytics.timeAnalysis.worstTime.time)} mins)
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Topic Progress */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+              <div className="dashboard-card lg:col-span-3">
+                <h2 className="section-title">Progress by Topic</h2>
+                <div className="space-y-4">
+                  {analytics.topics.distribution && analytics.topics.distribution.map((topic) => (
+                    <div key={topic.name}>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{topic.name}</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {topic.solved}/{topic.total} ({Math.round((topic.solved / topic.total) * 100)}%)
+                        </span>
+                      </div>
+                      <ProgressBar 
+                        percentage={(topic.solved / topic.total) * 100} 
+                        color={
+                          topic.solved / topic.total < 0.3 ? 'red' : 
+                          topic.solved / topic.total < 0.7 ? 'yellow' : 'green'
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Action Buttons */}
-      <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-        <Link href="/dashboard/problems">
-          <button className="btn-primary w-full sm:w-auto flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-            Practice Problems
-          </button>
-        </Link>
-        <Link href="/dashboard/analytics">
-          <button className="btn-secondary w-full sm:w-auto flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            View Analytics
-          </button>
-        </Link>
-      </div>
+      
+ 
+   {/* Recommendations Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 mt-8">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Recommendations</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {analytics.recommendations && analytics.recommendations.map((recommendation, index) => (
+                  <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      {recommendation.title}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm">
+                      {recommendation.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+
+
     </div>
   );
 }

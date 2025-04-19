@@ -1,4 +1,4 @@
-// File: /home/runner/workspace/app/dashboard/problems/page.js
+// File: C:\Users\91626\Downloads\CodingCrafter (1)1\CodingCrafter\app\dashboard\problems\page.js
 import * as entry from '../../../../../app/dashboard/problems/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

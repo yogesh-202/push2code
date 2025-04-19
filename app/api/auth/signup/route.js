@@ -32,6 +32,9 @@ export async function POST(request) {
 
     // Hash password
     const hashedPassword = await hash(password, 10);
+    //10 == salt rounds , A salt is a random value added to a password before hashing to ensure that 
+    // even identical passwords result in different hashes. This enhances security by protecting against 
+    // precomputed attacks like rainbow tables
 
     // Create new user
     const result = await db.collection('users').insertOne({
@@ -48,7 +51,13 @@ export async function POST(request) {
       },
     });
 
-    // Create JWT token
+
+//sign function is used to create a JWT token.
+    // It takes three main arguments:
+    // 1. Payload: An object containing the data you want to encode in the token. In this case, it includes the user's ID, email, and username.
+    // 2. Secret: A string used to sign the token, ensuring its integrity. This should be kept secure and is typically stored in an environment variable.
+    // 3. Options: An optional object where you can specify additional settings, such as the token's expiration time ('expiresIn').
+    // The 'sign' function is used to create a JSON Web Token (JWT) by encoding a payload with a secret key.
     const token = sign(
       {
         userId: result.insertedId.toString(),
