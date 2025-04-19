@@ -32,7 +32,7 @@ A modern web application for tracking and improving your coding practice with fe
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/CodingCrafter.git
+git clone https://github.com/yourusername/push2code.git
 cd CodingCrafter
 ```
 
