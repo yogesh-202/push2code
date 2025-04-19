@@ -1,9 +1,13 @@
 {
   "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/api/analytics/route": "app/api/analytics/route.js",
-  "/api/backlogs/route": "app/api/backlogs/route.js",
-  "/api/user/route": "app/api/user/route.js",
-  "/api/daily-goals/route": "app/api/daily-goals/route.js",
-  "/page": "app/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/api/problems/sql/route": "app/api/problems/sql/route.js",
+  "/api/problems/sql/mark-solved/route": "app/api/problems/sql/mark-solved/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/core-subjects/sql/page": "app/dashboard/core-subjects/sql/page.js",
+  "/dashboard/revision/page": "app/dashboard/revision/page.js",
+  "/dashboard/web-dev/page": "app/dashboard/web-dev/page.js",
+  "/dashboard/core-subjects/page": "app/dashboard/core-subjects/page.js",
+  "/dashboard/codeforces/profile/page": "app/dashboard/codeforces/profile/page.js",
+  "/dashboard/problems/page": "app/dashboard/problems/page.js",
+  "/dashboard/profile/page": "app/dashboard/profile/page.js"
 }
