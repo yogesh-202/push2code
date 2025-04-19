@@ -21,20 +21,15 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/page.js"
     ],
+    "/api/analytics/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/analytics/route.js"
+    ],
     "/api/user/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/user/route.js"
-    ],
-    "/api/user/stats/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/user/stats/route.js"
-    ],
-    "/api/user/critical-topics/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/user/critical-topics/route.js"
     ],
     "/api/daily-goals/route": [
       "static/chunks/webpack.js",
@@ -45,51 +40,6 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/backlogs/route.js"
-    ],
-    "/api/analytics/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/analytics/route.js"
-    ],
-    "/dashboard/problems/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/problems/page.js"
-    ],
-    "/api/problems/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/problems/route.js"
-    ],
-    "/api/problems/revision/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/problems/revision/route.js"
-    ],
-    "/api/problems/mark-solved/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/problems/mark-solved/route.js"
-    ],
-    "/dashboard/core-subjects/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/core-subjects/page.js"
-    ],
-    "/api/problems/mark-revision/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/problems/mark-revision/route.js"
-    ],
-    "/dashboard/revision/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/revision/page.js"
-    ],
-    "/dashboard/web-dev/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/web-dev/page.js"
     ]
   }
 }

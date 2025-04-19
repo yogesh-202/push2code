@@ -1,10 +1,9 @@
 {
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
   "/api/analytics/route": "app/api/analytics/route.js",
+  "/api/backlogs/route": "app/api/backlogs/route.js",
   "/api/user/route": "app/api/user/route.js",
   "/api/daily-goals/route": "app/api/daily-goals/route.js",
-  "/api/backlogs/route": "app/api/backlogs/route.js",
-  "/dashboard/revision/page": "app/dashboard/revision/page.js",
-  "/dashboard/web-dev/page": "app/dashboard/web-dev/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/core-subjects/page": "app/dashboard/core-subjects/page.js"
+  "/page": "app/page.js",
+  "/dashboard/page": "app/dashboard/page.js"
 }
