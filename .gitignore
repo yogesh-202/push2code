@@ -10,7 +10,7 @@
 # Next.js
 .next/
 /out/
-
+.replit/
 # Production
 /build
 /dist
