@@ -1,33 +1,28 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]/route';
 import { connectToDatabase } from '@/lib/mongodb';
-import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request) {
   try {
-    // Verify token
-    const token = request.headers.get('Authorization')?.split(' ')[1];
-    if (!token) {
-      return NextResponse.json({ message: 'No token provided' }, { status: 401 });
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
-    if (!payload || !payload.userId) {
-      return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
-    }
-
-    // Get time range from query params
-    const { searchParams } = new URL(request.url);
-    const timeRange = searchParams.get('timeRange') || 'week';
-
-    // Connect to database
     const { db } = await connectToDatabase();
     if (!db) {
       return NextResponse.json({ message: 'Database connection failed' }, { status: 500 });
     }
 
-    // Convert userId to ObjectId
-    const userId = new ObjectId(payload.userId);
+    // Get userId from session
+    const userId = new ObjectId(session.user.id);
+
+    // Get time range from query params
+    const { searchParams } = new URL(request.url);
+    const timeRange = searchParams.get('timeRange') || 'week';
 
     // Calculate date range for performance metrics
     const now = new Date();
@@ -446,4 +441,4 @@ function generateRecommendations(topics, difficulty, timeAnalysis) {
   }
 
   return recommendations;
-} 
+}

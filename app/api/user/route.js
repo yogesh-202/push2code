@@ -1,25 +1,15 @@
-import { connectToDatabase } from '@/lib/mongodb';
-import { verifyToken } from '@/lib/auth';
+import { connectDB } from '@/lib/db';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]/route';
 import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request) {
   try {
-    // Verify token
-    // Extract the token from the 'Authorization' header. The header typically follows the format 'Bearer <token>'.
-    // The 'split' method is used to separate the 'Bearer' keyword from the actual token, and '[1]' accesses the token part.
-    // The '?.split(' ')[1]' part is used to handle cases where the 'Authorization' header might not be present or might not follow the expected format.
-    // If the header is not present, the 'split' method will return 'null', and the '?.split(' ')[1]' part will return 'null' as well.
+    // Get session using NextAuth
+    const session = await getServerSession(authOptions);
     
-    const token = request.headers.get('Authorization')?.split(' ')[1];
-
-    // The 'verifyToken' function is imported from '@/lib/auth'.
-    // It is used to validate the provided token and extract the payload, which typically includes user information.
-    // If the token is invalid or expired, 'verifyToken' will return 'null' or throw an error.
-    
-    const payload = verifyToken(token);
-    
-    if (!payload) {
+    if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
@@ -27,15 +17,11 @@ export async function GET(request) {
     }
 
     // Connect to the database
-    const { db } = await connectToDatabase();
+    await connectDB();
 
-    // Get user
-    // The code is querying the 'users' collection in the database to find a user document.
-    // It uses the 'findOne' method to search for a document where the '_id' field matches the 'userId' from the token payload.
-    // The 'ObjectId' function is used to convert the 'userId' string into a MongoDB ObjectId type, which is necessary for querying by '_id'.
-    
-    const user = await db.collection('users').findOne({
-      _id: new ObjectId(payload.userId.toString()),
+    // Get user using session ID
+    const user = await User.findOne({
+      _id: new ObjectId(session.user.id),
     });
     
     if (!user) {
@@ -65,4 +51,8 @@ export async function GET(request) {
       { status: 500 }
     );
   }
-} 
+}
+
+
+
+

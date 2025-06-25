@@ -1,19 +1,16 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import { connectDB } from '@/lib/db';
+import cfproblem from '@/models/cf_problem.model';
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const rating = searchParams.get('rating') || 1500;
-    
-    const { db } = await connectToDatabase();
-    
-    // Get problems from MongoDB
-    const problems = await db.collection('codeforcesProblems')
-      .find({})
-      .toArray();
-    
-    // Format problems to match the expected structure
+    const rating = parseInt(searchParams.get('rating') || '1500', 10);
+
+    await connectDB();
+
+    const problems = await cfproblem.find({ });
+
     const formattedProblems = problems.map(problem => ({
       id: `${problem.contestId}${problem.index}${problem._id.toString()}`,
       contestId: problem.contestId,
@@ -22,10 +19,10 @@ export async function GET(request) {
       type: problem.type,
       rating: problem.rating,
       tags: problem.tags,
-      solvedCount: 0, // We'll add this later if needed
+      solvedCount: 0,
       url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`
     }));
-    
+
     return NextResponse.json({ problems: formattedProblems });
   } catch (error) {
     console.error('Error fetching Codeforces problems:', error);

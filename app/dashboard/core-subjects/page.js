@@ -12,6 +12,7 @@ export default function CoreSubjects() {
       icon: '📊',
       path: '/dashboard/core-subjects/sql'
     },
+    
     {
       name: 'System Design',
       description: 'Practice system design and architecture problems',

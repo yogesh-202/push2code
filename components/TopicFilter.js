@@ -1,10 +1,9 @@
 'use client';
 
 export default function TopicFilter({ topics, selectedTopic, onChange }) {
-  if (!topics || topics.length === 0) {
-    // Default topics if none provided
-    topics = ['Array', 'String', 'Linked List', 'Tree', 'Dynamic Programming', 'Graph', 'Backtracking'];
-  }
+  // Ensure topics array is always valid, even if empty from parent.
+  // The parent component (problems/page.js) is responsible for fetching and providing dynamic topics (tags).
+  const displayTopics = topics || []; 
 
   return (
     <div>
@@ -18,7 +17,7 @@ export default function TopicFilter({ topics, selectedTopic, onChange }) {
         onChange={(e) => onChange(e.target.value)}
       >
         <option value="all">All Topics</option>
-        {topics.map((topic) => (
+        {displayTopics.map((topic) => (
           <option key={topic} value={topic}>
             {topic}
           </option>

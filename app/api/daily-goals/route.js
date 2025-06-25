@@ -1,326 +1,196 @@
-import { connectToDatabase } from '@/lib/mongodb';
-import { verifyToken } from '@/lib/auth';
-import { NextResponse } from 'next/server';
-import { ObjectId } from 'mongodb';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { connectDB } from "@/lib/db";
+import UserProblemStatus from "@/models/problem_status.model";
+import { ObjectId } from "mongodb";
 
-export async function POST(request) {
+// Helper function to check if a date string matches today
+const isToday = (dateStr) => {
+    if (!dateStr) return false;
+    const today = new Date();
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return today.getFullYear() === year && 
+           today.getMonth() + 1 === month && 
+           today.getDate() === day;
+};
+
+// Helper function to get today's date string
+const getTodayString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+export async function POST(req) {
   try {
-    // Extract the token from the Authorization header
-    const token = request.headers.get('Authorization')?.split(' ')[1];
-    if (!token) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify the token
-    const payload = verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
-    }
-
-    // Parse the request body to get the problemId
-    const { problemId } = await request.json();
+    const { problemId } = await req.json();
     if (!problemId) {
-      return NextResponse.json({ message: 'Problem ID is required' }, { status: 400 });
-    }
-
-    // Connect to the database
-    const { db } = await connectToDatabase();
-    if (!db) {
-      console.error('Failed to connect to the database');
-      return NextResponse.json({ message: 'Database connection error' }, { status: 500 });
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-
-    // Check if the problem is already in the user's daily goals for today
-    const existingGoal = await db.collection('dailyGoals').findOne({
-      userId: new ObjectId(payload.userId),
-      problemId: new ObjectId(problemId),
-      date: today
-    });
-
-    if (existingGoal) {
-      return NextResponse.json({ message: 'Problem is already in daily goals' }, { status: 400 });
-    }
-
-    // Add the problem to the user's daily goals
-    const result = await db.collection('dailyGoals').insertOne({
-      userId: new ObjectId(payload.userId),
-      problemId: new ObjectId(problemId),
-      date: today,
-      addedAt: new Date(),
-      solved: false,
-      timeSpent: null,
-      selfRatedDifficulty: null,
-      solvedAt: null
-    });
-
-    // Get the updated list of daily goals
-    const problems = await db.collection('problems').find({}).toArray();
-    const dailyGoals = await db.collection('dailyGoals')
-      .find({ 
-        userId: new ObjectId(payload.userId),
-        date: today
-      })
-      .toArray();
-
-    // Get user's solved problems
-    const solvedProblems = await db.collection('solvedProblems')
-      .find({
-        userId: new ObjectId(payload.userId)
-      })
-      .toArray();
-
-    // Create a Set of solved problem IDs for quick lookup
-    const solvedProblemIds = new Set(
-      solvedProblems.map(sp => sp.problemId.toString())
-    );
-
-    // Format the daily goals
-    const formattedDailyGoals = dailyGoals
-      .map(goal => {
-        const problem = problems.find(p => p._id.toString() === goal.problemId.toString());
-        if (!problem) return null;
-
-        return {
-          id: goal.problemId.toString(),
-          title: problem.title,
-          topic: problem.topic,
-          difficulty: problem.difficulty,
-          url: problem.url || problem.link,
-          addedAt: goal.addedAt,
-          solved: solvedProblemIds.has(goal.problemId.toString()),
-          timeSpent: goal.timeSpent,
-          selfRatedDifficulty: goal.selfRatedDifficulty,
-          solvedAt: goal.solvedAt
-        };
-      })
-      .filter(Boolean);
-
-    return NextResponse.json({ 
-      message: 'Problem added to daily goals', 
-      dailyGoals: formattedDailyGoals 
-    }, { status: 201 });
-  } catch (error) {
-    console.error('Error adding problem to daily goals:', error);
-    return NextResponse.json({ message: 'Internal Server Error', error: error.message }, { status: 500 });
-  }
-}
-
-export async function GET(request) {
-  try {
-    // Validate token
-    const token = request.headers.get('authorization')?.split(' ')[1];
-    const decoded = verifyToken(token);
-
-    if (!decoded) {
       return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Connect to database
-    const { db } = await connectToDatabase();
-
-    // Get all problems
-    const problems = await db.collection('problems').find({}).toArray();
-
-    const today = new Date().toISOString().split('T')[0];
-
-    // Get user's daily goals for today
-    const dailyGoals = await db.collection('dailyGoals')
-      .find({ 
-        userId: new ObjectId(decoded.userId),
-        date: today
-      })
-      .toArray();
-
-    // Get user's solved problems
-    const solvedProblems = await db.collection('solvedProblems')
-      .find({
-        userId: new ObjectId(decoded.userId)
-      })
-      .toArray();
-
-    // Create a Set of solved problem IDs for quick lookup
-    const solvedProblemIds = new Set(
-      solvedProblems.map(sp => sp.problemId.toString())
-    );
-
-    // If no daily goals for today, check for unsolved problems from previous days
-    if (dailyGoals.length === 0) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-      // Get unsolved problems from yesterday
-      const yesterdayGoals = await db.collection('dailyGoals')
-        .find({ 
-          userId: new ObjectId(decoded.userId),
-          date: yesterdayStr,
-          solved: false
-        })
-        .toArray();
-
-      // Move unsolved problems to backlogs
-      for (const goal of yesterdayGoals) {
-        // Check if the problem is actually solved
-        if (!solvedProblemIds.has(goal.problemId.toString())) {
-          // Add to backlogs only if not solved
-          await db.collection('backlogs').insertOne({
-            userId: new ObjectId(decoded.userId),
-            problemId: goal.problemId,
-            addedAt: new Date(),
-            originalDate: goal.date
-          });
-        }
-
-        // Remove from daily goals
-        await db.collection('dailyGoals').deleteOne({
-          userId: new ObjectId(decoded.userId),
-          problemId: goal.problemId,
-          date: yesterdayStr
-        });
-      }
-    }
-
-    // Convert MongoDB daily goals to the format we need
-    const formattedDailyGoals = dailyGoals
-      .map(goal => {
-        const problem = problems.find(p => p._id.toString() === goal.problemId.toString());
-        if (!problem) return null;
-
-        return {
-          id: goal.problemId.toString(),
-          title: problem.title,
-          topic: problem.topic,
-          difficulty: problem.difficulty,
-          url: problem.url || problem.link,
-          addedAt: goal.addedAt,
-          solved: solvedProblemIds.has(goal.problemId.toString()),
-          timeSpent: goal.timeSpent,
-          selfRatedDifficulty: goal.selfRatedDifficulty,
-          solvedAt: goal.solvedAt
-        };
-      })
-      .filter(Boolean);
-
-    return NextResponse.json({ dailyGoals: formattedDailyGoals });
-  } catch (error) {
-    console.error('Error fetching daily goals:', error);
-    return NextResponse.json(
-      { message: 'Error fetching daily goals' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(request) {
-  try {
-    // Validate token
-    const token = request.headers.get('authorization')?.split(' ')[1];
-    const decoded = verifyToken(token);
-
-    if (!decoded) {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Parse request body
-    const { problemId, timeSpent, selfRatedDifficulty } = await request.json();
-
-    if (!problemId || !timeSpent || !selfRatedDifficulty) {
-      return NextResponse.json(
-        { message: 'Missing required fields' },
+        { message: "Missing problemId" },
         { status: 400 }
       );
     }
 
-    // Connect to database
-    const { db } = await connectToDatabase();
+    await connectDB();
 
-    const today = new Date().toISOString().split('T')[0];
+    const userId = new ObjectId(session.user.id);
+    const pid = new ObjectId(problemId);
+    
+    const todayString = getTodayString();
 
-    // Update the daily goal
-    const result = await db.collection('dailyGoals').updateOne(
-      {
-        userId: new ObjectId(decoded.userId),
-        problemId: new ObjectId(problemId),
-        date: today
-      },
-      {
-        $set: {
-          solved: true,
-          timeSpent,
-          selfRatedDifficulty,
-          solvedAt: new Date()
-        }
-      }
-    );
+    // Check if status exists
+    const existing = await UserProblemStatus.findOne({
+      userId,
+      problemId: pid,
+    });
 
-    if (result.matchedCount === 0) {
-      return NextResponse.json(
-        { message: 'Daily goal not found' },
-        { status: 404 }
+    if (existing) {
+      // Toggle the isDailyGoal flag and set date
+      const updated = await UserProblemStatus.findOneAndUpdate(
+        { userId, problemId: pid },
+        {
+          $set: {
+            setToDailyGoal: !existing.setToDailyGoal,
+            dailyGoalAssignedDate: !existing.setToDailyGoal ? todayString : null,
+            setToBacklog: false,
+          },
+        },
+        { new: true }
       );
-    }
 
-    return NextResponse.json({ message: 'Daily goal updated successfully' });
-  } catch (error) {
-    console.error('Error updating daily goal:', error);
+      return NextResponse.json({
+        message: updated.setToDailyGoal
+          ? "Added to daily goals"
+          : "Removed from daily goals",
+        setToDailyGoal: updated.setToDailyGoal,
+        dailyGoalAssignedDate: updated.dailyGoalAssignedDate,
+      });
+    } else {
+      // New entry
+      const newStatus = await UserProblemStatus.create({
+        userId,
+        problemId: pid,
+        setToDailyGoal: true,
+        dailyGoalAssignedDate: todayString,
+        setToBacklog: false,
+        selfRatedDifficulty: 'Easy'
+      });
+
+      return NextResponse.json({
+        message: "Added to daily goals",
+        setToDailyGoal: true,
+        dailyGoalAssignedDate: todayString,
+      });
+    }
+  } catch (err) {
+    console.error("Error in POST /api/daily-goals:", err);
     return NextResponse.json(
-      { message: 'Error updating daily goal' },
+      { message: "Internal Server Error" },
       { status: 500 }
     );
   }
 }
 
-export async function DELETE(request) {
+export async function GET(req) {
   try {
-    // Extract the token from the Authorization header
-    const token = request.headers.get('Authorization')?.split(' ')[1];
-    if (!token) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify the token
-    const payload = verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
-    }
+    await connectDB();
+    const userId = new ObjectId(session.user.id);
+    
+    const todayString = getTodayString();
 
-    // Parse the request body to get the problemId
-    const { problemId } = await request.json();
-    if (!problemId) {
-      return NextResponse.json({ message: 'Problem ID is required' }, { status: 400 });
-    }
-
-    // Connect to the database
-    const { db } = await connectToDatabase();
-    if (!db) {
-      console.error('Failed to connect to the database');
-      return NextResponse.json({ message: 'Database connection error' }, { status: 500 });
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-
-    // Remove the problem from the user's daily goals
-    const result = await db.collection('dailyGoals').deleteOne({
-      userId: new ObjectId(payload.userId),
-      problemId: new ObjectId(problemId),
-      date: today
+    // Get all daily goals
+    const allDailyGoals = await UserProblemStatus.find({
+      userId,
+      setToDailyGoal: true,
     });
 
-    if (result.deletedCount === 0) {
-      return NextResponse.json({ message: 'Problem not found in daily goals' }, { status: 404 });
+    // Process each goal to check if it should be moved to backlog
+    for (const goal of allDailyGoals) {
+      if (goal.dailyGoalAssignedDate<todayString) {
+        await UserProblemStatus.updateOne(
+          { _id: goal._id },
+          {
+            $set: {
+              setToDailyGoal: false,
+              setToBacklog: true,
+            },
+            $unset: {
+              dailyGoalAssignedDate: "",
+            },
+          }
+        );
+      }
     }
 
-    return NextResponse.json({ message: 'Problem removed from daily goals' }, { status: 200 });
-  } catch (error) {
-    console.error('Error removing problem from daily goals:', error);
-    return NextResponse.json({ message: 'Internal Server Error', error: error.message }, { status: 500 });
+
+
+    // Fetch remaining daily goals (only today's)
+    const dailyGoals = await UserProblemStatus.aggregate([
+      {
+        $match: {
+          userId: new ObjectId(session.user.id),
+          setToDailyGoal: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "problems",
+          localField: "problemId",
+          foreignField: "_id",
+          as: "problem",
+        },
+      },
+      { $unwind: "$problem" },
+    ]);
+
+
+    const formatted = dailyGoals.map((goal) => ({
+      id: goal.problem._id.toString(),
+      title: goal.problem.title,
+      topic: goal.problem.topic,
+      difficulty: goal.problem.difficulty,
+      url: goal.problem.leetcodeLink,
+      link: goal.problem.leetcodeLink,
+      dailyGoalAssignedDate: goal.dailyGoalAssignedDate,
+      setToRevision: goal.setToRevision || false,
+      setToBacklog: goal.setToBacklog || false,
+      youtubelink: goal.problem.youtubeLink,
+      setToDailyGoal: goal.setToDailyGoal || false,
+      addedAt: goal.addedAt || goal.createdAt || null,
+      solved: goal.isSolved || false,
+      timeSpent: goal.timespent || 0,
+      selfRatedDifficulty: goal.selfRatedDifficulty,
+      solvedAt: goal.solvedAt || null,
+      isSolved: goal.isSolved || false,
+    }));
+    
+
+
+    return NextResponse.json({ 
+      dailyGoals: formatted,
+      message: "Daily goals fetched successfully"
+    });
+  } catch (err) {
+    console.error("Error in GET /api/daily-goals:", err);
+    return NextResponse.json(
+      { 
+        message: "Error fetching daily goals",
+        error: err.message 
+      },
+      { status: 500 }
+    );
   }
 }

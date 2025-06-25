@@ -1,16 +1,19 @@
+import { connectDB } from '@/lib/db';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { verifyToken } from '@/lib/auth';
-import { ObjectId } from 'mongodb';
+import mongoose from 'mongoose';
+
+import SdLecture from '@/models/sdlecture.model';
+import SystemDesignProgress from '@/models/systemdesignprogress.model';
+import User from '@/models/user.model';
 
 export async function POST(request) {
   try {
-    // Check authentication using JWT
-    const token = request.headers.get('Authorization')?.split(' ')[1];
-    const payload = verifyToken(token);
-    
-    if (!payload) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Authenticate user session
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
     const { lectureId, completed, watchDuration } = await request.json();
@@ -22,28 +25,28 @@ export async function POST(request) {
       );
     }
 
-    const { db } = await connectToDatabase();
+    await connectDB();
 
-    // Update or create progress record
-    const result = await db.collection('systemDesignProgress').updateOne(
+    const userId = new mongoose.Types.ObjectId(session.user.id);
+
+    // Update or insert progress
+    await SystemDesignProgress.findOneAndUpdate(
       {
-        userId: payload.userId,
-        lectureId: new ObjectId(lectureId)
+        userId: userId,
+        lectureId: new mongoose.Types.ObjectId(lectureId)
       },
       {
-        $set: {
-          completed,
-          watchDuration,
-          lastWatchedAt: new Date()
-        }
+        completed,
+        watchDuration,
+        lastWatchedAt: new Date()
       },
-      { upsert: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // Get updated progress statistics
-    const totalLectures = await db.collection('systemDesignLectures').countDocuments();
-    const completedLectures = await db.collection('systemDesignProgress').countDocuments({
-      userId: payload.userId,
+    // Compute progress stats using Mongoose
+    const totalLectures = await SdLecture.countDocuments();
+    const completedLectures = await SystemDesignProgress.countDocuments({
+      userId: userId,
       completed: true
     });
 
@@ -52,7 +55,10 @@ export async function POST(request) {
       totalProgress: {
         completedLectures,
         totalLectures,
-        progressPercentage: (completedLectures / totalLectures) * 100
+        progressPercentage:
+          totalLectures > 0
+            ? (completedLectures / totalLectures) * 100
+            : 0
       }
     });
   } catch (error) {
@@ -62,4 +68,4 @@ export async function POST(request) {
       { status: 500 }
     );
   }
-} 
+}

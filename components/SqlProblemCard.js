@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { FaCheck, FaBookmark, FaExternalLinkAlt, FaYoutube } from 'react-icons/fa';
@@ -5,7 +7,8 @@ import { toast } from 'react-hot-toast';
 import YouTubeModal from './YouTubeModal';
 
 export default function SqlProblemCard({ problem, onMarkSolved, onMarkForRevision }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showYoutubeModal, setShowYoutubeModal] = useState(false);
@@ -44,19 +47,19 @@ export default function SqlProblemCard({ problem, onMarkSolved, onMarkForRevisio
       return;
     }
 
+    if (!session) {
+      toast.error('Please log in to continue');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       const response = await fetch('/api/problems/sql/mark-solved', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
+        credentials: 'include',
         body: JSON.stringify({
           problemId: problem.id,
           timeSpent: parsedTimeSpent,
@@ -66,11 +69,6 @@ export default function SqlProblemCard({ problem, onMarkSolved, onMarkForRevisio
 
       if (!response.ok) {
         const errorData = await response.json();
-        if (response.status === 401) {
-          // Token expired or invalid
-          localStorage.removeItem('token');
-          throw new Error('Session expired. Please log in again.');
-        }
         throw new Error(errorData.message || 'Failed to mark problem as solved');
       }
 
@@ -87,22 +85,20 @@ export default function SqlProblemCard({ problem, onMarkSolved, onMarkForRevisio
   };
 
   const handleMarkForRevision = async () => {
+    if (!session) {
+      toast.error('Please log in to continue');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       const response = await fetch('/api/problems/sql/mark-revision', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          problemId: problem.id
-        }),
+        credentials: 'include',
+        body: JSON.stringify({ problemId: problem.id }),
       });
 
       if (!response.ok) {
@@ -111,8 +107,10 @@ export default function SqlProblemCard({ problem, onMarkSolved, onMarkForRevisio
       }
 
       const data = await response.json();
+
       setIsMarkedForRevision(data.markedForRevision);
       onMarkForRevision(problem.id, data.markedForRevision);
+
       toast.success(
         data.markedForRevision
           ? 'Problem added to revision list'
@@ -125,6 +123,8 @@ export default function SqlProblemCard({ problem, onMarkSolved, onMarkForRevisio
       setIsLoading(false);
     }
   };
+
+  
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">

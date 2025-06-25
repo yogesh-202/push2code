@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { connectDB } from '@/lib/db';
+import mongoose from 'mongoose';
+import SqlProblem from '@/models/sqlproblem.model';
 
 export async function POST(request) {
   try {
-    const token = request.headers.get('Authorization')?.split(' ')[1];
-    const payload = verifyToken(token);
-    
-    if (!payload) {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
@@ -16,12 +17,18 @@ export async function POST(request) {
     }
 
     const { problemId } = await request.json();
-    
-    const { db } = await connectToDatabase();
-    
-    // Get the current problem
-    const problem = await db.collection('sqlProblems').findOne({ _id: new ObjectId(problemId) });
-    
+
+    if (!problemId || !mongoose.isValidObjectId(problemId)) {
+      return NextResponse.json(
+        { message: 'Invalid problem ID' },
+        { status: 400 }
+      );
+    }
+
+    await connectDB();
+
+    const problem = await SqlProblem.findById(problemId);
+
     if (!problem) {
       return NextResponse.json(
         { message: 'SQL problem not found' },
@@ -29,19 +36,18 @@ export async function POST(request) {
       );
     }
 
-    // Toggle the revision status
     const newRevisionStatus = !problem.revisionStatus;
-    
-    // Update the problem's revision status
-    await db.collection('sqlProblems').updateOne(
-      { _id: new ObjectId(problemId) },
-      { $set: { revisionStatus: newRevisionStatus } }
-    );
 
-    return NextResponse.json({ 
-      message: newRevisionStatus ? 'Problem marked for revision' : 'Problem removed from revision',
+    problem.revisionStatus = newRevisionStatus;
+    await problem.save();
+
+    return NextResponse.json({
+      message: newRevisionStatus
+        ? 'Problem marked for revision'
+        : 'Problem removed from revision',
       markedForRevision: newRevisionStatus
     });
+
   } catch (error) {
     console.error('Error updating SQL problem revision status:', error);
     return NextResponse.json(
@@ -49,4 +55,4 @@ export async function POST(request) {
       { status: 500 }
     );
   }
-} 
+}

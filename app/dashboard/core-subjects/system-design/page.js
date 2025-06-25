@@ -3,10 +3,12 @@ import { useState, useEffect } from 'react';
 import { FaPlay, FaCheck } from 'react-icons/fa';
 import YouTube from 'react-youtube';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
 
 export default function SystemDesignPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [modules, setModules] = useState([]);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,23 +20,21 @@ export default function SystemDesignPage() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (status === "unauthenticated") {
       router.push('/login');
       return;
     }
-    fetchCourseContent(token);
-  }, [router]);
+    if (status === "authenticated") {
+      fetchCourseContent();
+    }
+  }, [router, status]);
 
-  const fetchCourseContent = async (token) => {
+  const fetchCourseContent = async () => {
     try {
-      const response = await fetch('/api/system-design/content', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
+      const response = await fetch('/api/system-design/content');
+      console.log('content fetch start');
       if (!response.ok) {
+        console.log("error occured");
         const errorData = await response.json();
         throw new Error(errorData.details || 'Failed to fetch course content');
       }
@@ -61,12 +61,10 @@ export default function SystemDesignPage() {
 
   const handleVideoComplete = async (lectureId) => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('/api/system-design/progress', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           lectureId,
@@ -78,7 +76,7 @@ export default function SystemDesignPage() {
         throw new Error('Failed to update progress');
       }
 
-      await fetchCourseContent(token);
+      await fetchCourseContent();
       toast.success('Progress updated successfully');
     } catch (err) {
       console.error('Error updating progress:', err);
@@ -195,4 +193,4 @@ export default function SystemDesignPage() {
       </div>
     </div>
   );
-} 
+}

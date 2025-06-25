@@ -1,68 +1,66 @@
+import { connectDB } from '@/lib/db';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+
+import UserProblemStatus from '@/models/problem_status.model';
+import mongoose from 'mongoose';
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
-import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const token = request.headers.get('Authorization')?.split(' ')[1];
-    const payload = verifyToken(token);
-    
-    if (!payload) {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { problemId } = await request.json();
+    const { problemId } = await req.json();
+    console.log('📝 Mark Revision API - Request:', { problemId, userId: session.user.id });
     
-    const { db } = await connectToDatabase();
-    
-    // Check if problem exists in either problems or sqlProblems collection
-    const problem = await db.collection('problems').findOne({ _id: new ObjectId(problemId) }) ||
-                   await db.collection('sqlProblems').findOne({ _id: new ObjectId(problemId) });
-    
-    if (!problem) {
-      return NextResponse.json(
-        { message: 'Problem not found' },
-        { status: 404 }
-      );
+    if (!problemId) {
+      return NextResponse.json({ message: 'Problem ID is required' }, { status: 400 });
     }
+
+    await connectDB();
+
+    const userId = new mongoose.Types.ObjectId(session.user.id);
+    const problemObjectId = new mongoose.Types.ObjectId(problemId);
+
+    // Find the current user problem status
+    const existingStatus = await UserProblemStatus.findOne({
+      userId,
+      problemId: problemObjectId
+    });
     
-    // Check if problem is already marked for revision
-    const existingMark = await db.collection('revisionProblems').findOne({
-      userId: payload.userId,
-      problemId: new ObjectId(problemId)
+    console.log('📝 Mark Revision API - Found Status:', existingStatus);
+
+    const result = await UserProblemStatus.findOneAndUpdate(
+      { userId, problemId: problemObjectId },
+      {
+        $set: {
+          userId,
+          problemId: problemObjectId,
+          setToRevision: existingStatus ? !existingStatus.setToRevision : true,
+          isSolved: existingStatus ? existingStatus.isSolved : false,
+          setToDailyGoal: existingStatus ? existingStatus.setToDailyGoal : false,
+          setToBacklog: existingStatus ? existingStatus.setToBacklog : false,
+          timespent: existingStatus ? existingStatus.timespent : 0
+        }
+      },
+      { 
+        new: true,
+        upsert: true
+      }
+    );
+
+    console.log('📝 Mark Revision API - Updated Status:', result);
+
+    return NextResponse.json({ 
+      message: result.setToRevision ? 'Marked for revision' : 'Removed from revision',
+      setToRevision: result.setToRevision
     });
 
-    if (existingMark) {
-      // Remove from revision if already marked
-      await db.collection('revisionProblems').deleteOne({
-        userId: payload.userId,
-        problemId: new ObjectId(problemId)
-      });
-      return NextResponse.json({ 
-        message: 'Problem removed from revision',
-        markedForRevision: false
-      });
-    } else {
-      // Add to revision if not marked
-      await db.collection('revisionProblems').insertOne({
-        userId: payload.userId,
-        problemId: new ObjectId(problemId),
-        markedAt: new Date()
-      });
-      return NextResponse.json({ 
-        message: 'Problem marked for revision',
-        markedForRevision: true
-      });
-    }
   } catch (error) {
-    console.error('Error marking problem for revision:', error);
-    return NextResponse.json(
-      { message: 'Error marking problem for revision' },
-      { status: 500 }
-    );
+    console.error('Error toggling revision status:', error);
+    return NextResponse.json({ message: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }

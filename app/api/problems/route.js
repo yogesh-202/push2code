@@ -1,171 +1,135 @@
-import { connectToDatabase } from '@/lib/mongodb';
-import { verifyToken } from '@/lib/auth';
+import { connectDB } from '@/lib/db'; // Mongoose connection
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]/route';
 import { NextResponse } from 'next/server';
-import { ObjectId } from 'mongodb';
-import { parseCsv } from '@/utils/csvParser';
-import path from 'path';
-import fs from 'fs';
+import mongoose from 'mongoose';
+import Problem from '@/models/problem.model';
+import  UserProblemStatus from '@/models/problem_status.model';
 
-async function checkSundayLock(userId, db) {
+
+
+// 🔒 Check Sunday lock
+async function checkSundayLock(userId) {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
   const today = new Date();
-  const isSunday = today.getDay() === 0; // 0 is Sunday
-  
-  if (!isSunday) {
-    return { isLocked: false };
-  }
+  const isSunday = today.getDay() === 0;
 
-  // Get all revision problems
-  const revisionProblems = await db.collection('revisionProblems')
-    .find({ userId: new ObjectId(userId) })
-    .toArray();
+  const revisionProblems = await UserProblemStatus.find({
+    userId: userObjectId,
+    setToRevision: true,
+  });
 
-  // Get all backlog problems
-  const backlogProblems = await db.collection('backlogs')
-    .find({ userId: new ObjectId(userId) })
-    .toArray();
+  const backlogProblems = await UserProblemStatus.find({
+    userId: userObjectId,
+    setToBacklog: true,
+  });
 
-  // Get all solved problems
-  const solvedProblems = await db.collection('solvedProblems')
-    .find({ userId: new ObjectId(userId) })
-    .toArray();
-
-  const solvedProblemIds = new Set(solvedProblems.map(sp => sp.problemId.toString()));
-
-  // Check if all revision problems are solved
-  const allRevisionSolved = revisionProblems.every(rp => 
-    solvedProblemIds.has(rp.problemId.toString())
+  const solvedSet = new Set(
+    (await UserProblemStatus.find({ userId: userObjectId, isSolved: true }))
+      .map(p => p.problemId.toString())
   );
 
-  // Check if all backlog problems are solved
-  const allBacklogSolved = backlogProblems.every(bp => 
-    solvedProblemIds.has(bp.problemId.toString())
-  );
+  const allRevisionSolved = revisionProblems.every(p => solvedSet.has(p.problemId.toString()));
+  const allBacklogSolved = backlogProblems.every(p => solvedSet.has(p.problemId.toString()));
+
+  // Only lock if it's Sunday AND there are unsolved revision/backlog problems
+  const shouldLock = isSunday && !(allRevisionSolved && allBacklogSolved);
 
   return {
-    isLocked: !(allRevisionSolved && allBacklogSolved),
+    isLocked: shouldLock,
+    isSunday,
     revisionCount: revisionProblems.length,
     backlogCount: backlogProblems.length,
-    solvedRevisionCount: revisionProblems.filter(rp => 
-      solvedProblemIds.has(rp.problemId.toString())
-    ).length,
-    solvedBacklogCount: backlogProblems.filter(bp => 
-      solvedProblemIds.has(bp.problemId.toString())
-    ).length
+    solvedRevisionCount: revisionProblems.filter(p => solvedSet.has(p.problemId.toString())).length,
+    solvedBacklogCount: backlogProblems.filter(p => solvedSet.has(p.problemId.toString())).length,
   };
 }
 
-export async function GET(request) {
+// 📦 API GET handler
+export async function GET() {
   try {
-    // Verify token
-    const token = request.headers.get('Authorization')?.split(' ')[1];
-    const payload = verifyToken(token);
-    
-    if (!payload) {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Connect to the database
-    const { db } = await connectToDatabase();
-
-    // Check Sunday lock
-    const lockStatus = await checkSundayLock(payload.userId, db);
-
-    // Get problems from database
-    let problems = await db.collection('problems').find().toArray();
+    await connectDB();
     
-    // If no problems in database, load from CSV
-    if (problems.length === 0) {
-      // Read problems from CSV file
-      const csvPath = path.join(process.cwd(), 'public', 'sample_problems.csv');
-      let problemsData;
-      
-      try {
-        const csvData = fs.readFileSync(csvPath, 'utf-8');
-        problemsData = await parseCsv(csvData);
-        
-        // Insert problems into database
-        if (problemsData.length > 0) {
-          await db.collection('problems').insertMany(problemsData);
-          problems = problemsData;
+    const userId = new mongoose.Types.ObjectId(session.user.id);
+   
+  
+    const lockStatus = await checkSundayLock(userId);
+
+    // Get all problems with their status
+    const problems = await Problem.aggregate([
+      {
+        $lookup: {
+          from: 'userproblemstatuses',
+          let: { problemId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$problemId', '$$problemId'] },
+                    { $eq: ['$userId', userId] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'userStatus'
         }
-      } catch (error) {
-        console.error('Error loading problems from CSV:', error);
-        // Fallback to sample data
-        problems = generateSampleProblems();
-        await db.collection('problems').insertMany(problems);
+      },
+      {
+        $addFields: {
+          status: { $arrayElemAt: ['$userStatus', 0] },
+          isSolved: {
+            $ifNull: [{ $arrayElemAt: ['$userStatus.isSolved', 0] }, false]
+          },
+          setToRevision: {
+            $ifNull: [{ $arrayElemAt: ['$userStatus.setToRevision', 0] }, false]
+          },
+          setToBacklog: {
+            $ifNull: [{ $arrayElemAt: ['$userStatus.setToBacklog', 0] }, false]
+          },
+          setToDailyGoal: {
+            $ifNull: [{ $arrayElemAt: ['$userStatus.setToDailyGoal', 0] }, false]
+          },
+          solvedAt: { 
+            $arrayElemAt: ['$userStatus.solvedAt', 0] 
+          },
+          selfRatedDifficulty: { 
+            $arrayElemAt: ['$userStatus.selfRatedDifficulty', 0] 
+          },
+          timespent: {
+            $ifNull: [{ $arrayElemAt: ['$userStatus.timespent', 0] }, 0]
+          }
+        }
+      },
+      {
+        $project: {
+          userStatus: 0,
+          status: 0
+        }
       }
-    }
+    ]);
 
-    // Get user's solved problems
-    const userSolved = await db.collection('solvedProblems').find({
-      userId: new ObjectId(payload.userId.toString())
-    }).toArray();
-    
-    // Map solved problems to problem IDs
-    const solvedProblemIds = new Set(userSolved.map(s => s.problemId.toString()));
-    
-    // Add solved status to problems
-    const problemsWithSolvedStatus = problems.map(problem => {
-      const problemId = problem._id.toString();
-      const solved = solvedProblemIds.has(problemId);
-      
-      // Find solved info if available
-      const solvedInfo = userSolved.find(s => s.problemId.toString() === problemId);
-      
-      return {
-        _id: problemId,
-        id: problemId,
-        title: problem.title,
-        difficulty: problem.difficulty,
-        acceptance: problem.acceptance,
-        frequency: problem.frequency,
-        link: problem.link,
-        topic: problem.topic,
-        solved,
-        solvedAt: solvedInfo?.solvedAt || null,
-        timeSpent: solvedInfo?.timeSpent || null,
-        selfRatedDifficulty: solvedInfo?.selfRatedDifficulty || null,
-        isLocked: lockStatus.isLocked
-      };
+    console.log('Problems fetched:', {
+      total: problems.length,
+      withRevisionTrue: problems.filter(p => p.setToRevision === true).length,
+      withRevisionFalse: problems.filter(p => p.setToRevision === false).length,
+      withBacklog: problems.filter(p => p.setToBacklog === true).length,
+      solved: problems.filter(p => p.isSolved === true).length,
+      sampleProblem: problems[0]
     });
-    
-    return NextResponse.json({ 
-      problems: problemsWithSolvedStatus,
-      lockStatus 
-    });
+
+    return NextResponse.json({ problems, lockStatus });
+
   } catch (error) {
-    console.error('Error fetching problems:', error);
-    return NextResponse.json(
-      { message: 'Error fetching problems' },
-      { status: 500 }
-    );
+    console.error('Error in GET /api/problems:', error);
+    return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
 
-// Fallback sample data if CSV fails
-function generateSampleProblems() {
-  const topics = ['Array', 'String', 'Linked List', 'Tree', 'Hash Table', 'Dynamic Programming', 'Graph', 'Stack', 'Queue', 'Heap'];
-  const difficulties = ['Easy', 'Medium', 'Hard'];
-  
-  const problems = [];
-  
-  for (let i = 1; i <= 100; i++) {
-    const topic = topics[Math.floor(Math.random() * topics.length)];
-    const difficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
-    const acceptance = Math.floor(Math.random() * 50) + 30;
-    
-    problems.push({
-      title: `Sample Problem ${i}`,
-      difficulty,
-      acceptance: `${acceptance}%`,
-      frequency: Math.floor(Math.random() * 5) + 1,
-      link: `https://leetcode.com/problems/sample-problem-${i}`,
-      topic,
-    });
-  }
-  
-  return problems;
-}
+

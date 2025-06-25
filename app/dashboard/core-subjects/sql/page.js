@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import SqlProblemCard from '@/components/SqlProblemCard';
 import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 
 export default function SqlProblemsPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,61 +22,69 @@ export default function SqlProblemsPage() {
   const [allTags, setAllTags] = useState([]);
 
   useEffect(() => {
-    const fetchProblems = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
+    if (status === "unauthenticated") {
+      router.push('/login');
+      return;
+    }
+    if (status === "authenticated") {
+      fetchProblems();
+    }
+  }, [router, status]);
 
-        const response = await fetch('/api/problems/sql', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch problems');
-        }
-
-        const data = await response.json();
-        setProblems(data);
-        setSolvedCount(data.filter(p => p.solved).length);
-        setRevisionCount(data.filter(p => p.markedForRevision).length);
-        
-        // Extract all unique tags
-        const tags = new Set();
-        data.forEach(problem => {
-          if (problem.tags) {
-            problem.tags.forEach(tag => tags.add(tag));
-          }
-        });
-        setAllTags(Array.from(tags));
-      } catch (error) {
-        console.error('Error fetching problems:', error);
-        setError(error.message);
-        toast.error('Failed to load problems');
-      } finally {
-        setLoading(false);
+  const fetchProblems = async () => {
+    try {
+      const response = await fetch('/api/problems/sql');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch problems');
       }
-    };
 
-    fetchProblems();
-  }, []);
+      const data = await response.json();
+      setProblems(data);
+      setSolvedCount(data.filter(p => p.solved).length);
+      setRevisionCount(data.filter(p => p.markedForRevision).length);
+      
+      // Extract all unique tags
+      const tags = new Set();
+      data.forEach(problem => {
+        if (problem.tags) {
+          problem.tags.forEach(tag => tags.add(tag));
+        }
+      });
+      
+      setAllTags(Array.from(tags));
+    } catch (error) {
+      console.error('Error fetching problems:', error);
+      setError(error.message);
+      toast.error('Failed to load problems');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleMarkSolved = (problemId, solvedAt) => {
-    setProblems(problems.map(p => 
+  
+// sql/page.js
+const handleMarkSolved = (problemId, solvedAt) => {
+  setProblems(prev =>
+    prev.map(p =>
       p.id === problemId ? { ...p, solved: true, solvedAt } : p
-    ));
-    setSolvedCount(prev => prev + 1);
-  };
+    )
+  );
+  setSolvedCount(prev => prev + 1);
+};
 
-  const handleMarkForRevision = (problemId, marked) => {
-    setProblems(problems.map(p => 
+
+ // sql/page.js
+const handleMarkForRevision = (problemId, marked) => {
+  setProblems(prev =>
+    prev.map(p =>
       p.id === problemId ? { ...p, markedForRevision: marked } : p
-    ));
-    setRevisionCount(prev => marked ? prev + 1 : prev - 1);
-  };
+    )
+  );
+  setRevisionCount(prev => marked ? prev + 1 : prev - 1);
+};
+
+
 
   const filteredProblems = problems.filter(problem => {
     const matchesSearch = problem.title.toLowerCase().includes(searchTerm.toLowerCase());

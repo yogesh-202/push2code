@@ -1,10 +1,17 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { connectToDatabase } from '@/lib/mongodb';
+import GoogleProvider from 'next-auth/providers/google';
+import { connectDB } from '@/lib/db';
+import User from '@/models/user.model';
+import bcrypt from 'bcryptjs';
 
 export const authOptions = {
-  secret: process.env.NEXTAUTH_SECRET || 'your-development-secret-key',
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
@@ -13,75 +20,92 @@ export const authOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null;
+          throw new Error("Please enter an email and password");
         }
 
-        try {
-          const { db } = await connectToDatabase();
-          const user = await db.collection('users').findOne({ email: credentials.email });
+        await connectDB();
 
-          if (!user) {
-            return null;
-          }
-
-          // In a real application, you should use proper password hashing
-          // This is just a basic example
-          if (user.password === credentials.password) {
-            return {
-              id: user._id.toString(),
-              email: user.email,
-              name: user.username,
-            };
-          }
-
-          return null;
-        } catch (error) {
-          console.error('Error during authentication:', error);
-          return null;
+        const user = await User.findOne({ email: credentials.email });
+        if (!user) {
+          throw new Error("No user found with this email");
         }
+
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
+
+        if (!isPasswordValid) {
+          throw new Error("Invalid password");
+        }
+
+        return {
+          id: user._id.toString(),
+          email: user.email,
+          name: user.name,
+        };
       }
     })
   ],
-  session: {
-    strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  jwt: {
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  cookies: {
-    sessionToken: {
-      name: 'next-auth.session-token',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: process.env.NODE_ENV === 'production'
-      }
-    }
-  },
-  pages: {
-    signIn: '/login',
-    error: '/auth/error',
-  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.email = user.email;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id;
-        session.user.email = token.email;
       }
       return session;
-    }
-  },
-  debug: process.env.NODE_ENV === 'development',
-};
+    },
+    
+    async signIn({ user, account }) {
+      if (account?.provider === 'google') {
+        await connectDB();
 
+        const dbUser = await User.findOne({ email: user.email });
+        const isSignup = account.callbackUrl?.includes('mode=signup');
+
+        if (!dbUser && !isSignup) {
+          // Redirect to signup page if user not found and not coming from signup
+          return `/signup?email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}`;
+        }
+
+        if (!dbUser && isSignup) {
+          // Create new user on Google signup
+          const newUser = await User.create({
+            name: user.name,
+            email: user.email,
+            provider: 'google',
+          });
+          user.id = newUser._id.toString();
+        }
+
+        if (dbUser && isSignup) {
+          // Prevent signup if user already exists
+          return '/login?error=User already exists';
+        }
+
+        if (dbUser) {
+          user.id = dbUser._id.toString();
+        }
+      }
+
+      return true;
+    }
+    ,
+  },
+  pages: {
+    signIn: '/login',
+    signUp: '/signup',
+    error: '/auth/error',
+    verifyRequest: '/auth/verify',
+  },
+  session: {
+    strategy: 'jwt',
+  },
+};
 const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST }; 
+export { handler as GET, handler as POST };

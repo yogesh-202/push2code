@@ -1,6 +1,56 @@
 {
   "version": 3,
-  "middleware": {},
+  "middleware": {
+    "/": {
+      "files": [
+        "server/edge-runtime-webpack.js",
+        "server/middleware.js"
+      ],
+      "name": "middleware",
+      "page": "/",
+      "matchers": [
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/dashboard(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/dashboard/:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/api\\/user\\/stats([^\\/#\\?]+?)*(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/api/user/stats:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/api\\/user\\/stats([^\\/#\\?]+?)*(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/api/user/stats:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/api\\/problems(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/api/problems/:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/api\\/analytics(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/api/analytics/:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/api\\/daily-goals(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/api/daily-goals/:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/api\\/backlogs(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\.json)?[\\/#\\?]?$",
+          "originalSource": "/api/backlogs/:path*"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "F7H001mtI5Dbk1_v9DOoH",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "6uHETJuBVz+EOaXvPmMc/4GR/RrygSTKA9ttEcUSGa4=",
+        "__NEXT_PREVIEW_MODE_ID": "d3ce4af8127afae2c36621dde0af0da7",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "eb49ad83a595de53b34f90bb7ee63e59a096ccf1dfeb44c2fe97eed68650120f",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "5ab759baa670f0c5cd1fa6102d9776dcdf6602f3c9b69116ea356faddc95b497"
+      }
+    }
+  },
   "functions": {},
-  "sortedMiddleware": []
+  "sortedMiddleware": [
+    "/"
+  ]
 }

@@ -32,6 +32,7 @@ export default function CoreSubjectProblemCard({ problem, onMarkSolved, onMarkRe
     }
   };
 
+
   const handleAddToDailyGoal = async (e) => {
     e.stopPropagation();
     const token = localStorage.getItem('token');
@@ -115,3 +116,4 @@ export default function CoreSubjectProblemCard({ problem, onMarkSolved, onMarkRe
     </div>
   );
 } 
+

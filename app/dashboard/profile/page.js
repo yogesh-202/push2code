@@ -1,11 +1,15 @@
 'use client';
-
-import { useState, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
 export default function Profile() {
+
+
+  const { data: session, status } = useSession();
   const router = useRouter();
+
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({
     totalSolved: 0,
@@ -17,30 +21,23 @@ export default function Profile() {
 
   useEffect(() => {
     // Check if user is logged in
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    if (!token || !userData) {
+     if (status === 'loading') return;
+
+    if (!session) {
       router.push('/login');
       return;
     }
 
-    setUser(JSON.parse(userData));
-
     // Fetch user stats
-    const fetchStats = async () => {
+        const fetchStats = async () => {
       try {
-        const response = await fetch('/api/user/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const res = await fetch('/api/user/stats', {
+          credentials: 'include'
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch user statistics');
-        }
+        if (!res.ok) throw new Error('Failed to fetch stats');
 
-        const data = await response.json();
+        const data = await res.json();
         setStats(data);
       } catch (err) {
         console.error(err);
@@ -49,31 +46,16 @@ export default function Profile() {
       }
     };
 
-    fetchStats();
-  }, [router]);
+   fetchStats();
+  }, [session, status, router]);
 
-  const handleLogout = async () => {
-    try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Logout failed');
-      }
-      
-      // Clear local storage
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      
-      // Redirect to login
-      router.push('/login');
-    } catch (err) {
-      console.error(err);
-    }
+
+const handleLogout = async () => {
+    await signOut({ callbackUrl: '/login' });
   };
 
-  if (loading) {
+
+  if (loading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
@@ -100,14 +82,12 @@ export default function Profile() {
           <div className="pt-20 pb-8 px-8">
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {user?.username || 'User'}
+                {session?.user?.name || 'User'}
               </h1>
               <p className="text-gray-600 dark:text-gray-400">
-                {user?.email || 'email@example.com'}
+                {session?.user?.email|| 'email@example.com'}
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                Member since {new Date(stats.joinedDate || Date.now()).toLocaleDateString()}
-              </p>
+              
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

@@ -2,19 +2,27 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
 
 export default function Home() {
   const router = useRouter();
+  const { data: session, status } = useSession();
 
-  // Check if user is logged in and redirect to dashboard
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
+    if (status === 'loading') return; // wait for session to load
+    if (session) {
       router.push('/dashboard');
     }
-  }, [router]);
+  }, [session, status, router]);
+
+
+  
+  //Agar tum sirf mount par run karwana chahte ho, to
+  //  [router] ki jagah [] bhi likh sakte ho (agar router stable hai):
+  //Lekin agar router kisi async ya dynamic value pe depend karta hai (kahi-kahi frameworks me hota hai), 
+  // to [router] rakhna better hai.
 
   return (
     <div className="min-h-screen">
@@ -100,53 +108,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Screenshot Section */}
-      <section className="py-16 bg-white dark:bg-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-900 dark:text-white">
-            Your Personal Coding Dashboard
-          </h2>
-          <div className="relative h-96 md:h-[500px] rounded-lg overflow-hidden shadow-xl" style={{ position: 'relative' }}>
-            <Image
-              src="https://images.unsplash.com/photo-1499673610122-01c7122c5dcb"
-              alt="DSA Dashboard Interface"
-              fill
-              sizes="100vw"
-              className="object-cover"
-            />
-          </div>
-        </div>
-      </section>
 
-      {/* Visualization Preview */}
-      <section className="py-16 bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-900 dark:text-white">
-            Visualize Your Progress
-          </h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="relative h-72 md:h-80 rounded-lg overflow-hidden shadow-lg" style={{ position: 'relative' }}>
-              <Image
-                src="https://images.unsplash.com/photo-1653389525308-e7ab9fc0c260"
-                alt="Algorithm Visualization"
-                fill
-                sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-cover"
-              />
-            </div>
-            <div className="relative h-72 md:h-80 rounded-lg overflow-hidden shadow-lg" style={{ position: 'relative' }}>
-              <Image
-                src="https://images.unsplash.com/photo-1653389526309-f8e2e75f8aaf"
-                alt="Progress Tracking"
-                fill
-                sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-cover"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
+     
       {/* CTA Section */}
       <section className="py-16 bg-indigo-600 text-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">

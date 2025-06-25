@@ -1,254 +1,197 @@
-import { connectToDatabase } from '@/lib/mongodb';
-import { verifyToken } from '@/lib/auth';
-import { NextResponse } from 'next/server';
+import { connectDB } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import UserProblemStatus from '@/models/problem_status.model';
+import Problem from '@/models/problem.model';
 import { ObjectId } from 'mongodb';
+import { NextResponse } from 'next/server';
 
-export async function GET(request) {
+export async function GET(req) {
   try {
-    // Verify token
-    const token = request.headers.get('Authorization')?.split(' ')[1];
-    if (!token) {
-      console.error('No token provided');
-      return NextResponse.json(
-        { message: 'No token provided' },
-        { status: 401 }
-      );
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
-    if (!payload || !payload.userId) {
-      console.error('Invalid token or missing userId');
-      return NextResponse.json(
-        { message: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+    await connectDB();
+    const userId = new ObjectId(session.user.id);
 
-    // Connect to the database
-    const { db } = await connectToDatabase();
-    if (!db) {
-      console.error('Failed to connect to database');
-      return NextResponse.json(
-        { message: 'Database connection failed' },
-        { status: 500 }
-      );
-    }
-
-    // Get user with proper ObjectId
-    let userId;
-    try {
-      userId = new ObjectId(payload.userId);
-    } catch (error) {
-      console.error('Invalid userId format:', payload.userId);
-      return NextResponse.json(
-        { message: 'Invalid user ID format' },
-        { status: 400 }
-      );
-    }
-
-    const user = await db.collection('users').findOne({ _id: userId });
-    if (!user) {
-      console.error('User not found:', payload.userId);
-      return NextResponse.json(
-        { message: 'User not found' },
-        { status: 404 }
-      );
-    }
-
-    // Get solved problems with proper aggregation
-    const solvedProblems = await db.collection('solvedProblems')
-      .aggregate([
-        {
-          $match: { 
-            userId: payload.userId
-          }
-        },
+    // Fetch attempted and solved
+    const [attemptedCount, solvedCount, stats, allProblems] = await Promise.all([
+      UserProblemStatus.countDocuments({ userId }),
+      UserProblemStatus.countDocuments({ userId, isSolved: true }),
+      UserProblemStatus.aggregate([
+        { $match: { userId } },
         {
           $lookup: {
             from: 'problems',
             localField: 'problemId',
             foreignField: '_id',
-            as: 'problemDetails'
+            as: 'problem'
           }
         },
+        { $unwind: '$problem' },
         {
-          $sort: { solvedAt: -1 }
-        }
-      ]).toArray();
-
-    // Calculate difficulty counts
-    const difficultyCounts = await db.collection('solvedProblems').aggregate([
-      {
-        $match: { userId: payload.userId }
-      },
-      {
-        $lookup: {
-          from: 'problems',
-          localField: 'problemId',
-          foreignField: '_id',
-          as: 'problem'
-        }
-      },
-      {
-        $unwind: '$problem'
-      },
-      {
-        $group: {
-          _id: '$problem.difficulty',
-          count: { $sum: 1 }
-        }
-      }
-    ]).toArray();
-
-    // Convert difficulty counts
-    const difficultyMap = difficultyCounts.reduce((acc, curr) => {
-      acc[curr._id.toLowerCase() + 'Count'] = curr.count;
-      return acc;
-    }, { easyCount: 0, mediumCount: 0, hardCount: 0 });
-
-    // Calculate topic progress
-    const topicProgress = await db.collection('problems').aggregate([
-      {
-        $group: {
-          _id: '$topic',
-          total: { $sum: 1 },
-          problems: { $push: '$_id' }
-        }
-      },
-      {
-        $lookup: {
-          from: 'solvedProblems',
-          let: { problemIds: '$problems' },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $in: ['$problemId', '$$problemIds'] },
-                    { $eq: ['$userId', payload.userId] }
-                  ]
+          $facet: {
+            difficultyProgress: [
+              {
+                $group: {
+                  _id: '$problem.difficulty',
+                  solved: {
+                    $sum: {
+                      $cond: ['$$ROOT.isSolved', 1, 0]
+                    }
+                  },
+                  attempted: { $sum: 1 }
                 }
               }
-            }
-          ],
-          as: 'solved'
+            ],
+            topicProgress: [
+              { $unwind: '$problem.tags' },
+              {
+                $group: {
+                  _id: '$problem.tags',
+                  solved: {
+                    $sum: {
+                      $cond: ['$$ROOT.isSolved', 1, 0]
+                    }
+                  },
+                  attempted: { $sum: 1 }
+                }
+              }
+            ],
+            averageTime: [
+              {
+                $match: { isSolved: true }
+              },
+              {
+                $group: {
+                  _id: null,
+                  avgTime: { $avg: '$timespent' },
+                  totalTime: { $sum: '$timespent' }
+                }
+              }
+            ],
+            streakData: [
+              {
+                $match: { isSolved: true }
+              },
+              {
+                $group: {
+                  _id: {
+                    $dateToString: { format: '%Y-%m-%d', date: '$solvedAt' }
+                  },
+                  count: { $sum: 1 }
+                }
+              },
+              { $sort: { _id: 1 } }
+            ]
+          }
         }
-      },
-      {
-        $project: {
-          name: '$_id',
-          total: 1,
-          solved: { $size: '$solved' }
-        }
+      ]),
+      Problem.find({}, { difficulty: 1, tags: 1 }).lean()
+    ]);
+  
+    
+    const {
+      difficultyProgress = [],
+      topicProgress = [],
+      averageTime = [],
+      streakData = []
+    } = stats[0];
+
+    // Create difficulty totals
+    const difficultyTotals = allProblems.reduce((acc, p) => {
+      acc[p.difficulty] = (acc[p.difficulty] || 0) + 1;
+      return acc;
+    }, {});
+
+    const topicTotals = allProblems.reduce((acc, p) => {
+      for (const tag of p.tags || []) {
+        acc[tag] = (acc[tag] || 0) + 1;
       }
-    ]).toArray();
+      return acc;
+    }, {});
+
+    const formattedDifficultyProgress = {};
+    for (const entry of difficultyProgress) {
+      formattedDifficultyProgress[entry._id] = {
+        solved: entry.solved,
+        attempted: entry.attempted,
+        total: difficultyTotals[entry._id] || 0
+      };
+    }
+
+   const seenTopics = new Set();
+const formattedTopicProgress = topicProgress
+  .filter(t => t._id && typeof t._id === 'string' && t._id.trim() !== '')
+  .map(t => ({
+    topic: t._id.trim().toLowerCase(), // normalize for uniqueness
+    solved: t.solved,
+    attempted: t.attempted,
+    total: topicTotals[t._id] || 0
+  }))
+  .filter(t => {
+    if (seenTopics.has(t.topic)) return false;
+    seenTopics.add(t.topic);
+    return true;
+  });
 
     // Calculate streak
+    const dates = streakData.map(d => d._id).sort();
+    let streak = 0;
+    let currentStreak = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    // If no problems solved today, check if streak is broken
+    const lastSolveDate = dates.length > 0 ? new Date(dates[dates.length - 1]) : null;
+    const daysSinceLastSolve = lastSolveDate ? 
+      Math.floor((today - lastSolveDate) / (1000 * 60 * 60 * 24)) : 
+      Number.MAX_SAFE_INTEGER;
 
-    const hasSubmissionToday = await db.collection('solvedProblems').findOne({
-      userId: payload.userId,
-      solvedAt: { $gte: today }
-    });
-
-    const hasSubmissionYesterday = await db.collection('solvedProblems').findOne({
-      userId: payload.userId,
-      solvedAt: { 
-        $gte: yesterday,
-        $lt: today
-      }
-    });
-
-    let streak = 0;
-    if (hasSubmissionToday) {
-      streak = 1;
-      let checkDate = yesterday;
-      
-      while (true) {
-        const submission = await db.collection('solvedProblems').findOne({
-          userId: payload.userId,
-          solvedAt: {
-            $gte: checkDate,
-            $lt: new Date(checkDate.getTime() + 24 * 60 * 60 * 1000)
-          }
-        });
+    // If it's been more than 1 day since last solve, streak is broken
+    if (daysSinceLastSolve > 0) {
+      streak = 0;
+    } else {
+      // Calculate streak by checking consecutive days
+      for (let i = dates.length - 1; i >= 0; i--) {
+        const currentDate = new Date(dates[i]);
+        const prevDate = i > 0 ? new Date(dates[i - 1]) : null;
         
-        if (!submission) break;
-        
-        streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-    } else if (hasSubmissionYesterday) {
-      streak = 1;
-      let checkDate = new Date(yesterday);
-      checkDate.setDate(checkDate.getDate() - 1);
-      
-      while (true) {
-        const submission = await db.collection('solvedProblems').findOne({
-          userId: payload.userId,
-          solvedAt: {
-            $gte: checkDate,
-            $lt: new Date(checkDate.getTime() + 24 * 60 * 60 * 1000)
-          }
-        });
-        
-        if (!submission) break;
-        
-        streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-    }
-
-    // Calculate total time spent
-    const timeSpentResult = await db.collection('solvedProblems').aggregate([
-      {
-        $match: { userId: payload.userId }
-      },
-      {
-        $group: {
-          _id: null,
-          totalTimeSpent: { $sum: '$timeSpent' }
+        // First day or consecutive with previous
+        if (!prevDate || 
+            (currentDate - prevDate) / (1000 * 60 * 60 * 24) === 1) {
+          currentStreak++;
+        } else {
+          break;
         }
       }
-    ]).toArray();
+      streak = currentStreak;
+    }
 
-    const totalTimeSpent = timeSpentResult[0]?.totalTimeSpent || 0;
-
-    // Get recently solved problems
-    const recentlySolved = solvedProblems.slice(0, 5).map(sp => ({
-      id: sp.problemId.toString(),
-      title: sp.problemDetails[0]?.title || 'Unknown Problem',
-      difficulty: sp.problemDetails[0]?.difficulty || 'Unknown',
-      topic: sp.problemDetails[0]?.topic || 'Unknown',
-      timeSpent: sp.timeSpent,
-      solvedAt: sp.solvedAt,
-    }));
-
-    // Compile stats
-    const stats = {
-      totalSolved: solvedProblems.length,
-      ...difficultyMap,
-      timeSpent: totalTimeSpent,
-      streak,
-      joinedDate: user.createdAt,
-      topicProgress,
-      recentlySolved,
-      lastUpdated: new Date().toISOString()
-    };
+    // Format average time and total time
+    const avgTimeMinutes = averageTime[0]?.avgTime || 0;
+    const totalTimeMinutes = averageTime[0]?.totalTime || 0;
     
-    return NextResponse.json(stats);
-  } catch (error) {
-    console.error('Error in stats route:', error);
-    return NextResponse.json(
-      { 
-        message: 'Error fetching user stats',
-        error: error.message 
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      difficultyProgress: formattedDifficultyProgress,
+      topicProgress: formattedTopicProgress.sort((a, b) => b.solved - a.solved), // Sort by most solved
+      totalSolved: solvedCount,
+      totalAttempted: attemptedCount,
+      totalAvailable: allProblems.length,
+      accuracy:
+        attemptedCount > 0
+          ? parseFloat(((solvedCount / attemptedCount) * 100).toFixed(1))
+          : 0,
+      avgTimePerProblem: Math.round(avgTimeMinutes), // Round to nearest minute
+      totalTimeSpent: Math.round(totalTimeMinutes),
+      streak,
+      lastSolvedDate: dates[0] || null
+    });
+  } catch (err) {
+    console.error('Error in GET /api/stats:', err);
+    return Response.json({ message: 'Failed to fetch stats' }, { status: 500 });
   }
 }

@@ -1,161 +1,110 @@
-import { connectToDatabase } from '@/lib/mongodb';
-import { verifyToken } from '@/lib/auth';
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { connectDB } from '@/lib/db';
+import UserProblemStatus from '@/models/problem_status.model';
 import { ObjectId } from 'mongodb';
 
-export async function GET(request) {
-  try {
-    // Validate token
-    const token = request.headers.get('authorization')?.split(' ')[1];
-    const decoded = verifyToken(token);
+// Helper function to check if a date string matches today
+const isToday = (dateStr) => {
+    if (!dateStr) return false;
+    const today = new Date();
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return today.getFullYear() === year && 
+           today.getMonth() + 1 === month && 
+           today.getDate() === day;
+};
 
-    if (!decoded) {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
+// Helper function to get today's date string
+const getTodayString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+export async function GET(req) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // Connect to database
-    const { db } = await connectToDatabase();
+    await connectDB();
+    const userId = new ObjectId(session.user.id);
+    
+    const todayString = getTodayString();
 
-    // Get all problems
-    const problems = await db.collection('problems').find({}).toArray();
+    // Get all daily goals
+    const allDailyGoals = await UserProblemStatus.find({
+      userId,
+      setToDailyGoal: true,
+    });
 
-    // Get user's backlogs
-    const backlogs = await db.collection('backlogs')
-      .find({ userId: decoded.userId })
-      .sort({ addedAt: -1 })
-      .toArray();
 
-    // Convert MongoDB backlogs to the format we need
-    const formattedBacklogs = backlogs.map(backlog => {
-      const problem = problems.find(p => p._id.toString() === backlog.problemId);
-      if (!problem) return null;
+    // Process each goal to check if it should be moved to backlog
+    for (const goal of allDailyGoals) {
+      if (goal.dailyGoalAssignedDate<todayString) {
+        await UserProblemStatus.updateOne(
+          { _id: goal._id },
+          {
+            $set: {
+              setToDailyGoal: false,
+              setToBacklog: true
+            },
+            $unset: {
+              dailyGoalAssignedDate: ''
+            }
+          }
+        );
+      }
+    }
+    
 
-      return {
-        id: backlog.problemId,
-        title: problem.title,
-        topic: problem.topic,
-        difficulty: problem.difficulty,
-        url: problem.url || problem.link,
-        addedAt: backlog.addedAt,
-        originalDate: backlog.originalDate
-      };
-    }).filter(Boolean); // Remove null entries
 
-    return NextResponse.json({ backlogs: formattedBacklogs });
-  } catch (error) {
-    console.error('Error fetching backlogs:', error);
-    return NextResponse.json(
-      { message: 'Error fetching backlogs' },
-      { status: 500 }
-    );
+
+    // Fetch backlog problems
+    const backlogProblems = await UserProblemStatus.aggregate([
+      {
+        $match: {
+          userId,
+          setToBacklog: true
+        }
+      },
+      {
+        $lookup: {
+          from: 'problems',
+          localField: 'problemId',
+          foreignField: '_id',
+          as: 'problem'
+        }
+      },
+      { $unwind: '$problem' }
+    ]);
+
+    // Format the response
+    const formatted = backlogProblems.map(goal => ({
+      id: goal.problem._id.toString(),
+      title: goal.problem.title,
+      topic: goal.problem.topic,
+      difficulty: goal.problem.difficulty,
+      url: goal.problem.leetcodeLink,
+      youtubelink: goal.problem.youtubeLink,
+      addedAt: goal.addedAt || goal.createdAt || null,
+      dailyGoalAssignedDate: goal.dailyGoalAssignedDate,
+      setToRevision: goal.setToRevision || false,
+      setToBacklog: goal.setToBacklog || false,
+      setToDailyGoal: goal.setToDailyGoal || false,
+      solved: goal.isSolved || false,
+      timeSpent: goal.timeSpent || 0,
+      selfRatedDifficulty: goal.selfRatedDifficulty || null,
+      solvedAt: goal.solvedAt || null
+    }));
+
+    return NextResponse.json({ backlogProblems: formatted });
+  } catch (err) {
+    console.error('Error in GET /api/backlogs:', err);
+    return NextResponse.json({ message: 'Error fetching Backlogs' }, { status: 500 });
   }
 }
-
-export async function POST(request) {
-  try {
-    // Validate token
-    const token = request.headers.get('authorization')?.split(' ')[1];
-    const decoded = verifyToken(token);
-
-    if (!decoded) {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Parse request body
-    const { problemId, originalDate } = await request.json();
-
-    if (!problemId) {
-      return NextResponse.json(
-        { message: 'Problem ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Connect to database
-    const { db } = await connectToDatabase();
-
-    // Check if problem is already in backlogs
-    const existingBacklog = await db.collection('backlogs').findOne({
-      userId: decoded.userId,
-      problemId
-    });
-
-    if (existingBacklog) {
-      return NextResponse.json(
-        { message: 'Problem is already in backlogs' },
-        { status: 400 }
-      );
-    }
-
-    // Add to backlogs
-    await db.collection('backlogs').insertOne({
-      userId: decoded.userId,
-      problemId,
-      addedAt: new Date(),
-      originalDate: originalDate || new Date()
-    });
-
-    return NextResponse.json({ message: 'Problem added to backlogs' });
-  } catch (error) {
-    console.error('Error adding to backlogs:', error);
-    return NextResponse.json(
-      { message: 'Error adding to backlogs' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request) {
-  try {
-    // Validate token
-    const token = request.headers.get('authorization')?.split(' ')[1];
-    const decoded = verifyToken(token);
-
-    if (!decoded) {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Parse request body
-    const { problemId } = await request.json();
-
-    if (!problemId) {
-      return NextResponse.json(
-        { message: 'Problem ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Connect to database
-    const { db } = await connectToDatabase();
-
-    // Remove from backlogs
-    const result = await db.collection('backlogs').deleteOne({
-      userId: decoded.userId,
-      problemId
-    });
-
-    if (result.deletedCount === 0) {
-      return NextResponse.json(
-        { message: 'Problem not found in backlogs' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ message: 'Problem removed from backlogs' });
-  } catch (error) {
-    console.error('Error removing from backlogs:', error);
-    return NextResponse.json(
-      { message: 'Error removing from backlogs' },
-      { status: 500 }
-    );
-  }
-} 
