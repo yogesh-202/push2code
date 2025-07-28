@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import ProblemCard from '@/components/ProblemCard';
@@ -9,6 +8,7 @@ import ProgressBar from '@/components/ProgressBar';
 import StatsCard from '@/components/StatsCard';
 import { FireIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
+
 
 const defaultStats = {
   difficultyProgress: {
@@ -63,7 +63,7 @@ export default function Dashboard() {
   }, [status]);
 
   const fetchDashboardData = async () => {
-    try {
+    try {  
       setLoading(true);
       const [goalsRes, backlogsRes, statsRes] = await Promise.all([
         fetch('/api/daily-goals', { credentials: 'include' }),
@@ -81,6 +81,7 @@ export default function Dashboard() {
         statsRes.json()
       ]);
 
+      
       // Format problems to ensure all required properties are present
       const formatProblem = (problem) => ({
         ...problem,
@@ -92,6 +93,7 @@ export default function Dashboard() {
         tags: problem.tags || [],
         acceptance: problem.acceptance || 'N/A'
       });
+
 
       setDailyGoals(goalsData.dailyGoals?.map(formatProblem) || []);
       setBacklogs(backlogsData.backlogProblems?.map(formatProblem) || []);

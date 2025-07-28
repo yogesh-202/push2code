@@ -69,12 +69,12 @@ export const authOptions = {
         const isSignup = account.callbackUrl?.includes('mode=signup');
 
         if (!dbUser && !isSignup) {
-          // Redirect to signup page if user not found and not coming from signup
+          
           return `/signup?email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}`;
         }
 
         if (!dbUser && isSignup) {
-          // Create new user on Google signup
+         
           const newUser = await User.create({
             name: user.name,
             email: user.email,
@@ -84,7 +84,7 @@ export const authOptions = {
         }
 
         if (dbUser && isSignup) {
-          // Prevent signup if user already exists
+          
           return '/login?error=User already exists';
         }
 
@@ -97,6 +97,7 @@ export const authOptions = {
     }
     ,
   },
+  
   pages: {
     signIn: '/login',
     signUp: '/signup',
@@ -109,3 +110,6 @@ export const authOptions = {
 };
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
+
+
+

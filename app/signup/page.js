@@ -21,6 +21,7 @@ export default function SignUp() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+
   useEffect(() => {
     const emailParam = searchParams.get('email');
     const nameParam = searchParams.get('name');
@@ -34,6 +35,7 @@ export default function SignUp() {
     }
   }, [searchParams]);
 
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -42,6 +44,7 @@ export default function SignUp() {
     }));
   };
 
+  
   const handleGoogleSignIn = () => {
     signIn('google', { callbackUrl: '/dashboard' });
 
@@ -310,4 +313,6 @@ export default function SignUp() {
     </div>
   );
 }
+
+
 

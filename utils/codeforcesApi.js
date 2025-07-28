@@ -1,15 +1,9 @@
 import axios from 'axios';
 
-/**
- * Base URL for Codeforces API
- */
+
 const CF_API_BASE = 'https://codeforces.com/api';
 
-/**
- * Get user information from Codeforces API
- * @param {string} handle - Codeforces handle/username
- * @returns {Promise<Object>} - User information
- */
+
 export async function getUserInfo(handle) {
   try {
     const response = await axios.get(`${CF_API_BASE}/user.info?handles=${handle}`);
@@ -33,11 +27,7 @@ export async function getUserInfo(handle) {
   }
 }
 
-/**
- * Get user's submission statistics from Codeforces API
- * @param {string} handle - Codeforces handle/username
- * @returns {Promise<Object>} - Submission statistics
- */
+
 export async function getUserSubmissions(handle) {
   try {
     const response = await axios.get(`${CF_API_BASE}/user.status?handle=${handle}&from=1&count=100`);
@@ -61,11 +51,7 @@ export async function getUserSubmissions(handle) {
   }
 }
 
-/**
- * Get user's contest rating history from Codeforces API
- * @param {string} handle - Codeforces handle/username
- * @returns {Promise<Object>} - Rating history
- */
+
 export async function getUserRatingHistory(handle) {
   try {
     const response = await axios.get(`${CF_API_BASE}/user.rating?handle=${handle}`);
@@ -89,11 +75,7 @@ export async function getUserRatingHistory(handle) {
   }
 }
 
-/**
- * Get problem set from Codeforces API
- * @param {Object} params - Query parameters
- * @returns {Promise<Object>} - Problem set data
- */
+
 export async function getProblemSet(params = {}) {
   try {
     const response = await axios.get(`${CF_API_BASE}/problemset.problems`, { params });
@@ -118,10 +100,7 @@ export async function getProblemSet(params = {}) {
   }
 }
 
-/**
- * Filter and curate a list of 100 good problems from different difficulty levels
- * @returns {Promise<Array>} - Curated problem list
- */
+
 export async function getCuratedProblemList() {
   try {
     const { success, problems, error } = await getProblemSet();
@@ -130,10 +109,10 @@ export async function getCuratedProblemList() {
       return { success: false, error };
     }
     
-    // Filter out problems without a rating (difficulty)
+    
     const ratedProblems = problems.filter(p => p.rating);
     
-    // Group problems by rating
+   
     const groupedByRating = {};
     ratedProblems.forEach(problem => {
       if (!groupedByRating[problem.rating]) {
@@ -142,7 +121,7 @@ export async function getCuratedProblemList() {
       groupedByRating[problem.rating].push(problem);
     });
     
-    // Get curated problems from different rating ranges
+  
     const curated = [];
     const ratingRanges = [
       { min: 800, max: 1000, count: 15 },   // Beginner
@@ -178,11 +157,7 @@ export async function getCuratedProblemList() {
   }
 }
 
-/**
- * Analyze user performance based on submissions
- * @param {string} handle - Codeforces handle/username
- * @returns {Promise<Object>} - Analysis data
- */
+
 export async function analyzeUserPerformance(handle) {
   try {
     const [userInfoResponse, submissionsResponse, ratingResponse] = await Promise.all([
@@ -209,7 +184,7 @@ export async function analyzeUserPerformance(handle) {
       const verdict = submission.verdict || 'UNKNOWN';
       submissionsByVerdict[verdict] = (submissionsByVerdict[verdict] || 0) + 1;
       
-      // Track solved problems
+      
       if (verdict === 'OK') {
         const problemId = `${submission.problem.contestId}${submission.problem.index}`;
         solvedProblems.add(problemId);

@@ -8,14 +8,14 @@ export default function CodeforcesRatingChart({ ratingHistory }) {
   useEffect(() => {
     if (!ratingHistory || ratingHistory.length === 0) return;
     
-    // Destroy previous chart if it exists
+    
     if (chartInstance.current) {
       chartInstance.current.destroy();
     }
     
     const ctx = chartRef.current.getContext('2d');
     
-    // Prepare data for chart
+   
     const labels = ratingHistory.map((contest, index) => `Contest ${index + 1}`);
     const ratings = ratingHistory.map(contest => contest.newRating);
     

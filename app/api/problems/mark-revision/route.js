@@ -14,7 +14,7 @@ export async function POST(req) {
     }
 
     const { problemId } = await req.json();
-    console.log('📝 Mark Revision API - Request:', { problemId, userId: session.user.id });
+    console.log('Mark Revision API - Request:', { problemId, userId: session.user.id });
     
     if (!problemId) {
       return NextResponse.json({ message: 'Problem ID is required' }, { status: 400 });
@@ -31,7 +31,7 @@ export async function POST(req) {
       problemId: problemObjectId
     });
     
-    console.log('📝 Mark Revision API - Found Status:', existingStatus);
+    console.log('Mark Revision API - Found Status:', existingStatus);
 
     const result = await UserProblemStatus.findOneAndUpdate(
       { userId, problemId: problemObjectId },
@@ -52,7 +52,7 @@ export async function POST(req) {
       }
     );
 
-    console.log('📝 Mark Revision API - Updated Status:', result);
+    console.log(' Mark Revision API - Updated Status:', result);
 
     return NextResponse.json({ 
       message: result.setToRevision ? 'Marked for revision' : 'Removed from revision',

@@ -61,9 +61,7 @@ export async function GET(req) {
       }
     }
     
-
-
-
+    
     // Fetch backlog problems
     const backlogProblems = await UserProblemStatus.aggregate([
       {
@@ -82,6 +80,7 @@ export async function GET(req) {
       },
       { $unwind: '$problem' }
     ]);
+
 
     // Format the response
     const formatted = backlogProblems.map(goal => ({

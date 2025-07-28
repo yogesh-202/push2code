@@ -1,4 +1,4 @@
-import { connectDB } from '@/lib/db'; // Mongoose connection
+import { connectDB } from '@/lib/db'; 
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { NextResponse } from 'next/server';
@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import SqlProblem from '@/models/sqlproblem.model';
 import SqlProblemStatus from '@/models/sqlproblemstatus.model';
 import User from '@/models/user.model';
+
 
 export async function GET(request) {
   try {
@@ -23,7 +24,7 @@ export async function GET(request) {
       return NextResponse.json({ message: 'User not found' }, { status: 404 });
     }
 
-    // ✅ Remove .toArray()
+   
     const problems = await SqlProblem.find({});
     const solvedProblems = await SqlProblemStatus.find({ userId: user._id });
 

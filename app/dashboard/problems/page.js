@@ -19,7 +19,7 @@ export default function Problems() {
   const [lockStatus, setLockStatus] = useState(null);
   const [expandedTopics, setExpandedTopics] = useState({});
 
-  // Check auth and fetch problems
+  
   useEffect(() => {
     if (status === 'loading') return;
     if (status === 'authenticated') {
@@ -29,7 +29,7 @@ export default function Problems() {
     }
   }, [status]);
 
-  // Filter state
+  
   const [filters, setFilters] = useState({
     topic: 'all',
     difficulty: 'all',
@@ -37,7 +37,8 @@ export default function Problems() {
     search: '',
   });
 
-  // Apply filters
+  
+ 
   const applyFilters = useCallback((problems, currentFilters) => {
     let result = [...problems];
 
@@ -68,7 +69,8 @@ export default function Problems() {
     return result;
   }, []);
 
-  // Update filtered problems when filters or problems change
+  
+ 
   useEffect(() => {
     const filtered = applyFilters(problems, filters);
     setFilteredProblems(filtered);
@@ -97,19 +99,21 @@ export default function Problems() {
         throw new Error('Invalid response format');
       }
 
-      // Format problems to ensure all required properties are present
+      
       const formatProblem = (problem) => ({
         ...problem,
         _id: problem._id || problem.id,
         isSolved: problem.isSolved || false,
         setToRevision: problem.setToRevision || false,
         setToDailyGoal: problem.setToDailyGoal || false,
-        // Ensure link property is available and properly set
+        
         link: problem.url || problem.link || problem.leetcodeLink || `https://leetcode.com/problems/${problem.slug}`,
         tags: problem.tags || [],
         acceptance: problem.acceptance || 'N/A',
         difficulty: problem.difficulty || 'Medium'
       });
+
+
 
       const transformedProblems = data.problems.map(formatProblem);
       const uniqueTags = [...new Set(transformedProblems.flatMap(p => p.tags))].filter(Boolean);

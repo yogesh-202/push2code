@@ -1,7 +1,6 @@
 import Link from 'next/link';
 
 export default function CodeforcesProblemCard({ problem, onSolvedToggle, solved = false }) {
-  // Get difficulty color based on Codeforces rating
   const getDifficultyColor = (rating) => {
     if (!rating) return 'bg-gray-200 text-gray-800';
     

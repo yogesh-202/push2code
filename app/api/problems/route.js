@@ -5,12 +5,13 @@ import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import Problem from '@/models/problem.model';
 import  UserProblemStatus from '@/models/problem_status.model';
-
+import { ObjectId } from 'mongodb';
 
 
 // 🔒 Check Sunday lock
 async function checkSundayLock(userId) {
-  const userObjectId = new mongoose.Types.ObjectId(userId);
+  
+  const userObjectId = new ObjectId(userId);
   const today = new Date();
   const isSunday = today.getDay() === 0;
 
@@ -55,9 +56,8 @@ export async function GET() {
 
     await connectDB();
     
-    const userId = new mongoose.Types.ObjectId(session.user.id);
+    const userId = new ObjectId(session.user.id);
    
-  
     const lockStatus = await checkSundayLock(userId);
 
     // Get all problems with their status
@@ -115,6 +115,7 @@ export async function GET() {
       }
     ]);
 
+    
     console.log('Problems fetched:', {
       total: problems.length,
       withRevisionTrue: problems.filter(p => p.setToRevision === true).length,
@@ -133,3 +134,4 @@ export async function GET() {
 }
 
 
+  

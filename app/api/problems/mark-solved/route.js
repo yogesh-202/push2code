@@ -21,7 +21,7 @@ export async function POST(req) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
-    const userId = session.user.id;
+    const userId = new ObjectId(session.user.id);
     const solvedAt = new Date();
 
     // Validate problem
@@ -29,7 +29,7 @@ export async function POST(req) {
     if (!problem) {
       return NextResponse.json({ message: 'Problem not found' }, { status: 404 });
     }
-
+     
     // Check if already marked as solved
     const existing = await UserProblemStatus.findOne({
       userId,
@@ -63,6 +63,7 @@ export async function POST(req) {
       },
       { upsert: true }
     );
+
     // Update user stats (assumes User schema has stats object)
     await User.findByIdAndUpdate(userId, {
       $inc: {

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import UserProblemStatus from '@/models/problem_status.model';
 import Problem from '@/models/problem.model';
-import { ObjectId } from 'mongodb';
+import { ObjectId } from 'bson';
 import { NextResponse } from 'next/server';
 
 export async function GET(req) {
@@ -151,6 +151,7 @@ const formattedTopicProgress = topicProgress
       Math.floor((today - lastSolveDate) / (1000 * 60 * 60 * 24)) : 
       Number.MAX_SAFE_INTEGER;
 
+      
     // If it's been more than 1 day since last solve, streak is broken
     if (daysSinceLastSolve > 0) {
       streak = 0;

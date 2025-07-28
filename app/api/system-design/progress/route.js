@@ -2,11 +2,10 @@ import { connectDB } from '@/lib/db';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { NextResponse } from 'next/server';
-import mongoose from 'mongoose';
-
+import { ObjectId } from 'mongodb';
 import SdLecture from '@/models/sdlecture.model';
 import SystemDesignProgress from '@/models/systemdesignprogress.model';
-import User from '@/models/user.model';
+
 
 export async function POST(request) {
   try {
@@ -27,13 +26,13 @@ export async function POST(request) {
 
     await connectDB();
 
-    const userId = new mongoose.Types.ObjectId(session.user.id);
+    const userId = new ObjectId(session.user.id);
 
     // Update or insert progress
     await SystemDesignProgress.findOneAndUpdate(
       {
         userId: userId,
-        lectureId: new mongoose.Types.ObjectId(lectureId)
+        lectureId: new ObjectId(lectureId)
       },
       {
         completed,
@@ -69,3 +68,4 @@ export async function POST(request) {
     );
   }
 }
+

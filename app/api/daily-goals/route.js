@@ -5,7 +5,7 @@ import { connectDB } from "@/lib/db";
 import UserProblemStatus from "@/models/problem_status.model";
 import { ObjectId } from "mongodb";
 
-// Helper function to check if a date string matches today
+
 const isToday = (dateStr) => {
     if (!dateStr) return false;
     const today = new Date();
@@ -15,7 +15,7 @@ const isToday = (dateStr) => {
            today.getDate() === day;
 };
 
-// Helper function to get today's date string
+
 const getTodayString = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -23,6 +23,7 @@ const getTodayString = () => {
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
+
 
 export async function POST(req) {
   try {
@@ -45,15 +46,15 @@ export async function POST(req) {
     const pid = new ObjectId(problemId);
     
     const todayString = getTodayString();
-
-    // Check if status exists
+  
+  
     const existing = await UserProblemStatus.findOne({
       userId,
       problemId: pid,
     });
 
     if (existing) {
-      // Toggle the isDailyGoal flag and set date
+      
       const updated = await UserProblemStatus.findOneAndUpdate(
         { userId, problemId: pid },
         {
@@ -74,7 +75,7 @@ export async function POST(req) {
         dailyGoalAssignedDate: updated.dailyGoalAssignedDate,
       });
     } else {
-      // New entry
+    
       const newStatus = await UserProblemStatus.create({
         userId,
         problemId: pid,
@@ -111,13 +112,13 @@ export async function GET(req) {
     
     const todayString = getTodayString();
 
-    // Get all daily goals
+
     const allDailyGoals = await UserProblemStatus.find({
       userId,
       setToDailyGoal: true,
     });
 
-    // Process each goal to check if it should be moved to backlog
+    
     for (const goal of allDailyGoals) {
       if (goal.dailyGoalAssignedDate<todayString) {
         await UserProblemStatus.updateOne(

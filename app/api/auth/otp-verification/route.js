@@ -1,8 +1,7 @@
 import {connectDB} from '@/lib/db';
 import { NextResponse } from 'next/server';
 import User from '@/models/user.model';
-import { z } from 'zod';
-import NextAuth from 'next-auth';
+
 
 export async function POST(request) {
   try {

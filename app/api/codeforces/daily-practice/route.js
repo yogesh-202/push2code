@@ -12,10 +12,10 @@ export async function GET(request) {
       return NextResponse.json({ error }, { status: 500 });
     }
 
-    // Filter problems with ratings
+   
     const ratedProblems = problems.filter(p => p.rating);
 
-    // Get one problem from each difficulty range
+   
     const dailyProblems = {
       easier: getRandomProblem(ratedProblems.filter(p => 
         p.rating >= userRating - 200 && p.rating < userRating - 100)),
